@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
@@ -54,6 +55,18 @@ def _http_status_error(status: int, url: str, retry_after: str | None = None) ->
     headers = {"Retry-After": retry_after} if retry_after is not None else None
     response = httpx.Response(status, request=request, headers=headers)
     return httpx.HTTPStatusError("status error", request=request, response=response)
+
+
+def _capture_spans(monkeypatch) -> list[tuple[str, dict[str, object]]]:
+    captured: list[tuple[str, dict[str, object]]] = []
+
+    @contextmanager
+    def fake_span(name: str, **kwargs: object):
+        captured.append((name, kwargs))
+        yield
+
+    monkeypatch.setattr("hnbot.app.logfire.span", fake_span)
+    return captured
 
 
 def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
@@ -178,3 +191,31 @@ def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
         app.http_client.close()
 
     assert captured_content["value"] == "short comment"
+
+
+def test_process_entry_emits_expected_spans(monkeypatch) -> None:
+    app = App(_settings(max_comment_markdown_chars=20_000))
+    spans = _capture_spans(monkeypatch)
+
+    def fake_get(url: str) -> httpx.Response:
+        request = httpx.Request("GET", url)
+        return httpx.Response(200, request=request, text="<p>short comment</p>")
+
+    async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
+        return None
+
+    monkeypatch.setattr(app.http_client, "get", fake_get)
+    monkeypatch.setattr("hnbot.app.generate_article", lambda _content: FakeArticle())
+    monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
+
+    try:
+        assert app.process_entry(_entry("105")) is True
+    finally:
+        app.http_client.close()
+
+    span_names = [name for name, _ in spans]
+    assert "hnbot.run.entry.process" in span_names
+    assert "hnbot.entry.fetch_comment_markdown" in span_names
+    assert "hnbot.entry.generate_article" in span_names
+    assert "hnbot.entry.create_page" in span_names
+    assert "hnbot.entry.send_message" in span_names

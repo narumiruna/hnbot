@@ -1,5 +1,6 @@
 import html
 
+import logfire
 from loguru import logger
 from pydantic import BaseModel
 
@@ -49,23 +50,32 @@ class Article(BaseModel):
         return self.content
 
     def create_page(self) -> str:
-        page_url = create_page(
-            self.title or "HN Article",
-            html.escape(self.content).replace("\n", "<br>"),
-        )
+        with logfire.span(
+            "hnbot.article.create_page",
+            has_title=bool(self.title),
+        ):
+            page_url = create_page(
+                self.title or "HN Article",
+                html.escape(self.content).replace("\n", "<br>"),
+            )
 
-        logger.info("Telegraph page created: {}", page_url)
-        return page_url
+            logger.info("Telegraph page created: {}", page_url)
+            return page_url
 
 
 def generate_article(html_content: str, lang: str = "Taiwanese") -> Article:
-    if not html_content.strip():
-        return Article(content="[No content provided]")
+    with logfire.span(
+        "hnbot.article.generate",
+        lang=lang,
+        input_chars=len(html_content),
+    ):
+        if not html_content.strip():
+            return Article(content="[No content provided]")
 
-    article = parse(
-        html_content,
-        text_format=Article,
-        instructions=INSTRUCTIONS.format(lang=lang),
-    )
-    logger.info("Article generated with title: {}", article.title)
-    return article
+        article = parse(
+            html_content,
+            text_format=Article,
+            instructions=INSTRUCTIONS.format(lang=lang),
+        )
+        logger.info("Article generated with title: {}", article.title)
+        return article

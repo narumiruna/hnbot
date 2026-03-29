@@ -5,6 +5,7 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 
 import httpx
+import logfire
 import redis
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
@@ -89,13 +90,18 @@ def _log_retry(retry_state: RetryCallState) -> None:
 
 
 async def send_message(message: str, settings: Settings) -> None:
-    async with Bot(
-        token=settings.bot_token,
-        default=DefaultBotProperties(
-            parse_mode=ParseMode.HTML,
-        ),
-    ) as bot:
-        await bot.send_message(chat_id=settings.chat_id, text=message)
+    with logfire.span(
+        "hnbot.telegram.send_message",
+        chat_id=settings.chat_id,
+        message_chars=len(message),
+    ):
+        async with Bot(
+            token=settings.bot_token,
+            default=DefaultBotProperties(
+                parse_mode=ParseMode.HTML,
+            ),
+        ) as bot:
+            await bot.send_message(chat_id=settings.chat_id, text=message)
 
 
 class App:
@@ -112,26 +118,48 @@ class App:
         )
 
     def run(self) -> None:
-        try:
-            feed = get_hn_feed()
+        with logfire.span("hnbot.run.feed_batch"):
+            try:
+                self._run_feed_batch()
+            finally:
+                self.http_client.close()
 
+    def _run_feed_batch(self) -> None:
+        with logfire.span("hnbot.run.fetch_feed"):
+            feed = get_hn_feed()
+        self._process_feed_entries(feed.entries, feed.title)
+
+    def _process_feed_entries(self, entries: list[HNEntry], feed_title: str) -> None:
+        with logfire.span(
+            "hnbot.run.process_entries",
+            feed_title=feed_title,
+            entry_count=len(entries),
+        ):
             # Sleep for a bit to avoid hitting the feed too quickly
             time.sleep(0.5)
+            for entry in entries:
+                self._process_feed_entry(entry)
 
-            for entry in feed.entries:
-                key = f"hnbot:entry:{entry.id}"
+    def _process_feed_entry(self, entry: HNEntry) -> None:
+        with logfire.span(
+            "hnbot.run.entry",
+            entry_id=entry.id,
+            comment_url=entry.comment_url,
+            link=entry.link,
+        ):
+            key = f"hnbot:entry:{entry.id}"
+            already_processed = bool(self.redis_client.exists(key))
 
-                if self.redis_client.exists(key):
-                    logger.info("Already processed entry with id: {}", entry.id)
-                    continue
+            if already_processed:
+                logger.info("Already processed entry with id: {}", entry.id)
+                return
 
-                if self.process_entry(entry):
-                    self.redis_client.set(key, entry.comment_url)
-                    logger.info("Marked entry as processed: {}", entry.id)
-                else:
-                    logger.warning("Skipping entry after failed processing: {}", entry.id)
-        finally:
-            self.http_client.close()
+            if self.process_entry(entry):
+                self.redis_client.set(key, entry.comment_url)
+                logger.info("Marked entry as processed: {}", entry.id)
+                return
+
+            logger.warning("Skipping entry after failed processing: {}", entry.id)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -141,46 +169,68 @@ class App:
         reraise=True,
     )
     def _fetch_comment_markdown(self, entry: HNEntry) -> str:
-        resp = self.http_client.get(entry.comment_url)
-        resp.raise_for_status()
-        content = html_to_markdown(resp.text)
-        if len(content) <= self.settings.max_comment_markdown_chars:
-            return content
+        with logfire.span(
+            "hnbot.entry.fetch_comment_markdown",
+            entry_id=entry.id,
+            comment_url=entry.comment_url,
+            max_chars=self.settings.max_comment_markdown_chars,
+        ):
+            resp = self.http_client.get(entry.comment_url)
+            resp.raise_for_status()
+            content = html_to_markdown(resp.text)
+            content_len = len(content)
+            if content_len <= self.settings.max_comment_markdown_chars:
+                return content
 
-        logger.info(
-            "Truncating markdown for entry {} from {} to {} chars",
-            entry.id,
-            len(content),
-            self.settings.max_comment_markdown_chars,
-        )
-        return content[: self.settings.max_comment_markdown_chars]
+            logger.info(
+                "Truncating markdown for entry {} from {} to {} chars",
+                entry.id,
+                content_len,
+                self.settings.max_comment_markdown_chars,
+            )
+            with logfire.span(
+                "hnbot.entry.truncate_comment_markdown",
+                entry_id=entry.id,
+                original_chars=content_len,
+                max_chars=self.settings.max_comment_markdown_chars,
+            ):
+                return content[: self.settings.max_comment_markdown_chars]
 
     def process_entry(self, entry: HNEntry) -> bool:
-        logger.info("Processing entry with id: {}", entry.id)
+        with logfire.span(
+            "hnbot.run.entry.process",
+            entry_id=entry.id,
+            comment_url=entry.comment_url,
+            link=entry.link,
+        ):
+            logger.info("Processing entry with id: {}", entry.id)
 
-        try:
-            content = self._fetch_comment_markdown(entry)
-        except httpx.HTTPError:
-            logger.exception("Failed to fetch comments for entry {}", entry.id)
-            return False
+            try:
+                content = self._fetch_comment_markdown(entry)
+            except httpx.HTTPError:
+                logger.exception("Failed to fetch comments for entry {}", entry.id)
+                return False
 
-        try:
-            article = generate_article(content)
-            page_url = article.create_page()
+            try:
+                with logfire.span("hnbot.entry.generate_article", entry_id=entry.id):
+                    article = generate_article(content)
+                with logfire.span("hnbot.entry.create_page", entry_id=entry.id):
+                    page_url = article.create_page()
 
-            message = "\n\n".join(
-                [
-                    entry.title,
-                    f"Link: {entry.link}",
-                    f"Comments: {entry.comment_url}",
-                    f"Note: {page_url}",
-                ]
-            )
+                message = "\n\n".join(
+                    [
+                        entry.title,
+                        f"Link: {entry.link}",
+                        f"Comments: {entry.comment_url}",
+                        f"Note: {page_url}",
+                    ]
+                )
 
-            asyncio.run(send_message(message, self.settings))
-        except (RuntimeError, ValueError):
-            logger.exception("Failed to generate/send article for entry {}", entry.id)
-            return False
+                with logfire.span("hnbot.entry.send_message", entry_id=entry.id, chat_id=self.settings.chat_id):
+                    asyncio.run(send_message(message, self.settings))
+            except (RuntimeError, ValueError):
+                logger.exception("Failed to generate/send article for entry {}", entry.id)
+                return False
 
-        logger.info("Successfully processed entry {}", entry.id)
-        return True
+            logger.info("Successfully processed entry {}", entry.id)
+            return True
