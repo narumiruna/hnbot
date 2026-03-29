@@ -15,7 +15,7 @@ def send(prompt: str, instructions: str | None = None) -> str:
     )
 
     if response.output_text is None:
-        raise Exception("No text returned.")
+        raise RuntimeError("No text returned.")
 
     return response.output_text
 
@@ -31,6 +31,6 @@ def parse[T](prompt: str, text_format: type[T], instructions: str | None = None)
     )
 
     if response.output_parsed is None:
-        raise Exception("No parsed message returned.")
+        raise RuntimeError("No parsed message returned.")
 
     return response.output_parsed

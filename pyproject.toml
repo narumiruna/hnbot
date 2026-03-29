@@ -18,6 +18,7 @@ dependencies    = [
   "python-dotenv>=1.2.2",
   "rich>=14.3.2",
   "telegraph>=2.2.0",
+  "tenacity>=9.1.4",
   "typer>=0.21.1",
 ]
 
