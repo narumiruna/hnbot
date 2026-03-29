@@ -7,42 +7,36 @@ from hnbot.lazy import parse
 from hnbot.page import create_page
 
 INSTRUCTIONS = """
-Extract, reorganize, and translate the input text into {lang} as a readable blog post.
-Do not add new facts, entities, events, or claims beyond the input.
-Preserve all materially important points from the input while improving clarity and flow.
+Task:
+Convert the input into a coherent blog post written entirely in {lang}.
 
-Generate a clear, specific blog post title in {lang} that reflects the reorganized key points and important content.
-Do not use generic titles such as “Article” or “Summary”.
+Hard constraints:
+- Preserve all materially important information from the input.
+- Do not add new facts, entities, events, numbers, or claims.
+- Use a professional, neutral, easy-to-read tone.
+- Simplify complex wording when needed, but keep original meaning.
 
-Rewrite the content as a professional, neutral blog post in plain and accessible language.
-Prioritize readability and coherent narrative flow for general readers.
-If the input is legal, technical, or otherwise complex, simplify wording while preserving essential facts and meaning.
-
+Output schema:
 Title:
-Title line in {lang}
+<one specific title in {lang}, no emoji, not generic like "Article" or "Summary">
 
 Content:
-One or more content sections in {lang}
-Each content section must follow all rules below:
-- The first line must be a standalone section heading in this exact pattern: <emoji> <section title>
-- The section title must be specific and written in {lang}
-- The section body must start on the next line and may contain one or more paragraphs
-- Use section heading lines only for section boundaries; do not add extra heading lines inside the same section
-- Do not use Markdown, HTML, bullet markers, or numbered list markers as section labels
-The final content section must act as the closing section and only restate points already present in earlier sections.
-The title line itself must not include an emoji.
-Maintain smooth transitions between paragraphs and keep the full post cohesive.
+<one or more sections in {lang}>
 
+Section rules:
+- Each section starts with exactly one heading line: <emoji> <section title>
+- Section title must be specific and in {lang}
+- Section body starts on the next line and can have one or more paragraphs
+- Do not add extra heading lines inside the same section
+- Do not use Markdown/HTML heading syntax, bullet markers, or numbered list markers as section labels
+- Keep transitions smooth and the whole post cohesive
+- The final section is a closing section that only restates earlier points
 
 Final checks:
-Ensure the output is a complete, readable blog post with a title and coherent sections, including opening, body, and closing coverage.
-Ensure all important points from the input are preserved without adding new facts.
-Ensure all content is translated into {lang} and written in a professional, neutral tone.
-Ensure every requirement above is satisfied.
-Make only minimal revisions during final review.
-
-ALL output MUST be written entirely in {lang}.
-"""  # noqa: E501
+- Include opening, body, and closing coverage
+- Ensure all content is in {lang}
+- Ensure every constraint is satisfied
+"""
 
 
 class Article(BaseModel):
