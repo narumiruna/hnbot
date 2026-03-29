@@ -10,7 +10,7 @@ import httpx
 class HNEntry:
     title: str
     link: str
-    comments: str
+    comment_url: str
     published_at: datetime
 
 
@@ -42,21 +42,15 @@ def get_hn_feed(points: int = 100) -> HNFeed:
 
     parsed_dict = feedparser.parse(resp.content)
 
-    title = parsed_dict["feed"]["title"]
-
-    entries = []
-    for entry in parsed_dict["entries"]:
-        title = entry["title"]
-        link = entry["link"]
-        comments = entry["comments"]
-
-        entries.append(
+    return HNFeed(
+        title=parsed_dict["feed"]["title"],
+        entries=[
             HNEntry(
-                title=title,
-                link=link,
-                comments=comments,
+                title=entry["title"],
+                link=entry["link"],
+                comment_url=entry["comments"],
                 published_at=parse_datetime(entry["published_parsed"]),
             )
-        )
-
-    return HNFeed(title=title, entries=entries)
+            for entry in parsed_dict["entries"]
+        ],
+    )
