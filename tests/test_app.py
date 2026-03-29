@@ -76,6 +76,7 @@ def _close_app_client(app: App) -> None:
 
 def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
     app = App(_settings())
+    app.redis_client = FakeRedis()
     call_count = {"count": 0}
 
     async def fake_get(url: str) -> httpx.Response:
@@ -104,6 +105,7 @@ def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
 
 def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
     app = App(_settings())
+    app.redis_client = FakeRedis()
     call_count = {"count": 0}
 
     async def fake_get(url: str) -> httpx.Response:
@@ -147,6 +149,7 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
 def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
     cap = 20_000
     app = App(_settings(max_comment_markdown_chars=cap))
+    app.redis_client = FakeRedis()
     captured_content: dict[str, str] = {}
 
     async def fake_get(url: str) -> httpx.Response:
@@ -176,6 +179,7 @@ def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
 
 def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
     app = App(_settings(max_comment_markdown_chars=20_000))
+    app.redis_client = FakeRedis()
     captured_content: dict[str, str] = {}
 
     async def fake_get(url: str) -> httpx.Response:
@@ -203,6 +207,7 @@ def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
 
 def test_process_entry_emits_expected_spans(monkeypatch) -> None:
     app = App(_settings(max_comment_markdown_chars=20_000))
+    app.redis_client = FakeRedis()
     spans = _capture_spans(monkeypatch)
 
     async def fake_get(url: str) -> httpx.Response:
