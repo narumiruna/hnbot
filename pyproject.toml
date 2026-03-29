@@ -9,8 +9,11 @@ dependencies    = [
   "aiocache[redis]>=0.12.3",
   "aiogram>=3.26.0",
   "feedparser>=6.0.12",
+  "httpx>=0.28.1",
   "logfire>=4.31.0",
   "loguru>=0.7.3",
+  "openai>=2.30.0",
+  "rich>=14.3.2",
   "telegraph>=2.2.0",
   "typer>=0.21.1",
 ]
@@ -64,7 +67,6 @@ select = [
   "RUF",     # ruff-specific rules
   "SIM",     # flake8-simplify
   "TID",     # flake8-tidy-imports
-  "TRY002",  # raise-vanilla-class
   "TRY004",  # type-check-without-type-error
   "TRY203",  # useless-try-except
   "TRY300",  # try-consider-else
