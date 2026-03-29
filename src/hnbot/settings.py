@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 
@@ -25,6 +26,8 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = 10.0
     http_user_agent: str = "hnbot/0.0.0"
     max_comment_markdown_chars: int = 20_000
+    comments_fetch_concurrency: int = Field(default=1, ge=1)
+    article_pipeline_concurrency: int = Field(default=3, ge=1)
 
 
 @lru_cache(maxsize=1)
