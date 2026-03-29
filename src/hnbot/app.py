@@ -1,11 +1,37 @@
+import asyncio
+import os
+
 import httpx
 import redis
+from aiogram import Bot
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from loguru import logger
 
 from hnbot.article import generate_article
 from hnbot.rss import HNEntry
 from hnbot.rss import get_hn_feed
 from hnbot.utils import html_to_markdown
+
+
+async def send_message(message: str) -> None:
+    bot_token = os.getenv("BOT_TOKEN")
+    if bot_token is None:
+        logger.error("BOT_TOKEN is not set")
+        return
+
+    chat_id = os.getenv("CHAT_ID")
+    if chat_id is None:
+        logger.error("CHAT_ID is not set")
+        return
+
+    async with Bot(
+        token=bot_token,
+        default=DefaultBotProperties(
+            parse_mode=ParseMode.HTML,
+        ),
+    ) as bot:
+        await bot.send_message(chat_id=chat_id, text=message)
 
 
 class App:
@@ -24,7 +50,6 @@ class App:
             self.process_entry(entry)
 
             self.redis_client.set(key, entry.comment_url)
-            break
 
     def process_entry(self, entry: HNEntry) -> None:
         resp = httpx.get(entry.comment_url, follow_redirects=True)
@@ -34,3 +59,14 @@ class App:
 
         article = generate_article(content)
         page_url = article.create_page()
+
+        message = "\n\n".join(
+            [
+                entry.title,
+                f"Link: {entry.link}",
+                f"Comments: {entry.comment_url}",
+                f"Note: {page_url}",
+            ]
+        )
+
+        asyncio.run(send_message(message))
