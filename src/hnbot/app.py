@@ -148,12 +148,7 @@ class App:
             link=entry.link,
         ):
             key = f"hnbot:entry:{entry.id}"
-            with logfire.span(
-                "hnbot.run.entry.dedup_check",
-                entry_id=entry.id,
-                redis_key=key,
-            ):
-                already_processed = bool(self.redis_client.exists(key))
+            already_processed = bool(self.redis_client.exists(key))
 
             if already_processed:
                 logger.info("Already processed entry with id: {}", entry.id)
