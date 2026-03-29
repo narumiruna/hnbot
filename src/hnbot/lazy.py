@@ -8,7 +8,7 @@ _MODEL: Final[str] = "gpt-5-mini"
 def send(prompt: str, instructions: str | None = None) -> str:
     client = OpenAI()
 
-    response = client.responses.parse(
+    response = client.responses.create(
         input=prompt,
         instructions=instructions,
         model=_MODEL,
