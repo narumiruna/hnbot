@@ -3,7 +3,6 @@ from typing import Final
 from openai import OpenAI
 
 _MODEL: Final[str] = "gpt-5-mini"
-_TEMPERATURE: Final[float] = 0.0
 
 
 def send(prompt: str, instructions: str | None = None) -> str:
@@ -13,7 +12,6 @@ def send(prompt: str, instructions: str | None = None) -> str:
         input=prompt,
         instructions=instructions,
         model=_MODEL,
-        temperature=_TEMPERATURE,
     )
 
     if response.output_text is None:
@@ -29,7 +27,6 @@ def parse[T](prompt: str, text_format: type[T], instructions: str | None = None)
         input=prompt,
         instructions=instructions,
         model=_MODEL,
-        temperature=_TEMPERATURE,
         text_format=text_format,
     )
 
