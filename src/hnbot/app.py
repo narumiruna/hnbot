@@ -120,44 +120,51 @@ class App:
     def run(self) -> None:
         with logfire.span("hnbot.run.feed_batch"):
             try:
-                with logfire.span("hnbot.run.fetch_feed"):
-                    feed = get_hn_feed()
-
-                with logfire.span(
-                    "hnbot.run.process_entries",
-                    feed_title=feed.title,
-                    entry_count=len(feed.entries),
-                ):
-                    # Sleep for a bit to avoid hitting the feed too quickly
-                    time.sleep(0.5)
-
-                    for entry in feed.entries:
-                        with logfire.span(
-                            "hnbot.run.entry",
-                            entry_id=entry.id,
-                            comment_url=entry.comment_url,
-                            link=entry.link,
-                        ):
-                            key = f"hnbot:entry:{entry.id}"
-
-                            with logfire.span(
-                                "hnbot.run.entry.dedup_check",
-                                entry_id=entry.id,
-                                redis_key=key,
-                            ):
-                                already_processed = bool(self.redis_client.exists(key))
-
-                            if already_processed:
-                                logger.info("Already processed entry with id: {}", entry.id)
-                                continue
-
-                            if self.process_entry(entry):
-                                self.redis_client.set(key, entry.comment_url)
-                                logger.info("Marked entry as processed: {}", entry.id)
-                            else:
-                                logger.warning("Skipping entry after failed processing: {}", entry.id)
+                self._run_feed_batch()
             finally:
                 self.http_client.close()
+
+    def _run_feed_batch(self) -> None:
+        with logfire.span("hnbot.run.fetch_feed"):
+            feed = get_hn_feed()
+        self._process_feed_entries(feed.entries, feed.title)
+
+    def _process_feed_entries(self, entries: list[HNEntry], feed_title: str) -> None:
+        with logfire.span(
+            "hnbot.run.process_entries",
+            feed_title=feed_title,
+            entry_count=len(entries),
+        ):
+            # Sleep for a bit to avoid hitting the feed too quickly
+            time.sleep(0.5)
+            for entry in entries:
+                self._process_feed_entry(entry)
+
+    def _process_feed_entry(self, entry: HNEntry) -> None:
+        with logfire.span(
+            "hnbot.run.entry",
+            entry_id=entry.id,
+            comment_url=entry.comment_url,
+            link=entry.link,
+        ):
+            key = f"hnbot:entry:{entry.id}"
+            with logfire.span(
+                "hnbot.run.entry.dedup_check",
+                entry_id=entry.id,
+                redis_key=key,
+            ):
+                already_processed = bool(self.redis_client.exists(key))
+
+            if already_processed:
+                logger.info("Already processed entry with id: {}", entry.id)
+                return
+
+            if self.process_entry(entry):
+                self.redis_client.set(key, entry.comment_url)
+                logger.info("Marked entry as processed: {}", entry.id)
+                return
+
+            logger.warning("Skipping entry after failed processing: {}", entry.id)
 
     @retry(
         stop=stop_after_attempt(3),
