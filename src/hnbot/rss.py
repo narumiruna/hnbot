@@ -47,21 +47,24 @@ def parse_id(url: str) -> str:
 def get_hn_feed(points: int = 100) -> HNFeed:
     url = f"https://hnrss.org/newest?points={points}"
 
-    resp = httpx.get(url, follow_redirects=True)
+    resp = httpx.get(url)
     resp.raise_for_status()
 
     parsed_dict = feedparser.parse(resp.content)
 
+    entries = [
+        HNEntry(
+            title=entry["title"],
+            link=entry["link"],
+            comment_url=entry["comments"],
+            id=parse_id(entry["comments"]),
+            published_at=parse_datetime(entry["published_parsed"]),
+        )
+        for entry in parsed_dict["entries"]
+    ]
+    entries.reverse()
+
     return HNFeed(
         title=parsed_dict["feed"]["title"],
-        entries=[
-            HNEntry(
-                title=entry["title"],
-                link=entry["link"],
-                comment_url=entry["comments"],
-                id=parse_id(entry["comments"]),
-                published_at=parse_datetime(entry["published_parsed"]),
-            )
-            for entry in parsed_dict["entries"]
-        ],
+        entries=entries,
     )

@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 
 import httpx
 import redis
@@ -40,6 +41,10 @@ class App:
 
     def run(self) -> None:
         feed = get_hn_feed()
+
+        # Sleep for a bit to avoid hitting the feed too quickly
+        time.sleep(0.5)
+
         for entry in feed.entries:
             key = f"hnbot:entry:{entry.id}"
 
@@ -52,7 +57,9 @@ class App:
             self.redis_client.set(key, entry.comment_url)
 
     def process_entry(self, entry: HNEntry) -> None:
-        resp = httpx.get(entry.comment_url, follow_redirects=True)
+        logger.info("Processing entry with id: {}", entry.id)
+
+        resp = httpx.get(entry.comment_url)
         resp.raise_for_status()
 
         content = html_to_markdown(resp.text)
