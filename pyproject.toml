@@ -13,6 +13,7 @@ dependencies    = [
   "logfire>=4.31.0",
   "loguru>=0.7.3",
   "openai>=2.30.0",
+  "python-dotenv>=1.2.2",
   "rich>=14.3.2",
   "telegraph>=2.2.0",
   "typer>=0.21.1",
