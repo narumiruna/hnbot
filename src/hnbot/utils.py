@@ -1,10 +1,11 @@
-import os
 from pathlib import Path
 
 import charset_normalizer
 import logfire
 from loguru import logger
 from markdownify import markdownify
+
+from hnbot.settings import Settings
 
 
 def normalize_whitespace(text: str) -> str:
@@ -39,15 +40,16 @@ def read_html_content(f: str | Path) -> str:
     return normalize_whitespace(md)
 
 
-def logfire_is_enabled() -> bool:
-    return bool(os.getenv("LOGFIRE_TOKEN"))
+def logfire_is_enabled(settings: Settings) -> bool:
+    return bool(settings.logfire_token)
 
 
-def configure_logfire() -> None:
-    if not logfire_is_enabled():
+def configure_logfire(settings: Settings) -> None:
+    token = settings.logfire_token
+    if not token:
         return
 
-    logfire.configure()
+    logfire.configure(token=token)
     # logfire.instrument_openai_agents()
     logfire.instrument_openai()
     logfire.instrument_redis()

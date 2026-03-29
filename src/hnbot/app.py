@@ -1,5 +1,4 @@
 import asyncio
-import os
 import time
 from datetime import UTC
 from datetime import datetime
@@ -20,10 +19,10 @@ from tenacity import wait_exponential_jitter
 from hnbot.article import generate_article
 from hnbot.rss import HNEntry
 from hnbot.rss import get_hn_feed
+from hnbot.settings import Settings
 from hnbot.utils import html_to_markdown
 
 _DEFAULT_WAIT = wait_exponential_jitter(initial=1, max=8)
-MAX_COMMENT_MARKDOWN_CHARS = 20_000
 
 
 def _is_transient_fetch_error(exc: BaseException) -> bool:
@@ -89,32 +88,27 @@ def _log_retry(retry_state: RetryCallState) -> None:
     )
 
 
-async def send_message(message: str) -> None:
-    bot_token = os.getenv("BOT_TOKEN")
-    if bot_token is None:
-        logger.error("BOT_TOKEN is not set")
-        return
-
-    chat_id = os.getenv("CHAT_ID")
-    if chat_id is None:
-        logger.error("CHAT_ID is not set")
-        return
-
+async def send_message(message: str, settings: Settings) -> None:
     async with Bot(
-        token=bot_token,
+        token=settings.bot_token,
         default=DefaultBotProperties(
             parse_mode=ParseMode.HTML,
         ),
     ) as bot:
-        await bot.send_message(chat_id=chat_id, text=message)
+        await bot.send_message(chat_id=settings.chat_id, text=message)
 
 
 class App:
-    def __init__(self) -> None:
-        self.redis_client = redis.Redis(host="localhost", port=6379, db=0)
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self.redis_client = redis.Redis(
+            host=settings.redis_host,
+            port=settings.redis_port,
+            db=settings.redis_db,
+        )
         self.http_client = httpx.Client(
-            timeout=httpx.Timeout(10.0),
-            headers={"User-Agent": "hnbot/0.0.0"},
+            timeout=httpx.Timeout(settings.http_timeout_seconds),
+            headers={"User-Agent": settings.http_user_agent},
         )
 
     def run(self) -> None:
@@ -150,16 +144,16 @@ class App:
         resp = self.http_client.get(entry.comment_url)
         resp.raise_for_status()
         content = html_to_markdown(resp.text)
-        if len(content) <= MAX_COMMENT_MARKDOWN_CHARS:
+        if len(content) <= self.settings.max_comment_markdown_chars:
             return content
 
         logger.info(
             "Truncating markdown for entry {} from {} to {} chars",
             entry.id,
             len(content),
-            MAX_COMMENT_MARKDOWN_CHARS,
+            self.settings.max_comment_markdown_chars,
         )
-        return content[:MAX_COMMENT_MARKDOWN_CHARS]
+        return content[: self.settings.max_comment_markdown_chars]
 
     def process_entry(self, entry: HNEntry) -> bool:
         logger.info("Processing entry with id: {}", entry.id)
@@ -183,7 +177,7 @@ class App:
                 ]
             )
 
-            asyncio.run(send_message(message))
+            asyncio.run(send_message(message, self.settings))
         except (RuntimeError, ValueError):
             logger.exception("Failed to generate/send article for entry {}", entry.id)
             return False

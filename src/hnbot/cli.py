@@ -5,6 +5,7 @@ from dotenv import find_dotenv
 from dotenv import load_dotenv
 
 from hnbot.app import App
+from hnbot.settings import get_settings
 from hnbot.utils import configure_logfire
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,8 @@ def main() -> None:
         override=True,
     )
 
-    configure_logfire()
+    settings = get_settings()
+    configure_logfire(settings)
 
-    app = App()
+    app = App(settings)
     app.run()
