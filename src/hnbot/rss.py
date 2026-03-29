@@ -34,7 +34,7 @@ def parse_datetime(published_parsed: list[int]) -> datetime:
     )
 
 
-def get_hn_feed(points: int) -> HNFeed:
+def get_hn_feed(points: int = 100) -> HNFeed:
     url = f"https://hnrss.org/newest?points={points}"
 
     resp = httpx.get(url, follow_redirects=True)
