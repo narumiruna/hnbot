@@ -3,7 +3,7 @@ import html
 from loguru import logger
 from pydantic import BaseModel
 
-from hnbot.lazy import parse
+from hnbot.llm import parse
 from hnbot.page import create_page
 
 INSTRUCTIONS = """

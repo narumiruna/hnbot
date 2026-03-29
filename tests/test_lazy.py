@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-import hnbot.lazy as lazy
+import hnbot.llm as llm
 from hnbot.settings import Settings
 
 
@@ -37,9 +37,9 @@ class FakeOpenAI:
 
 def test_send_uses_openai_model_from_settings(monkeypatch) -> None:
     fake_client = FakeOpenAI()
-    monkeypatch.setattr(lazy, "OpenAI", lambda: fake_client)
+    monkeypatch.setattr(llm, "OpenAI", lambda: fake_client)
     monkeypatch.setattr(
-        lazy,
+        llm,
         "get_settings",
         lambda: Settings.model_validate(
             {
@@ -50,7 +50,7 @@ def test_send_uses_openai_model_from_settings(monkeypatch) -> None:
         ),
     )
 
-    result = lazy.send("prompt", instructions="instr")
+    result = llm.send("prompt", instructions="instr")
 
     assert result == "ok"
     assert fake_client.responses.create_calls[0]["model"] == "gpt-5"
@@ -58,9 +58,9 @@ def test_send_uses_openai_model_from_settings(monkeypatch) -> None:
 
 def test_parse_uses_openai_model_from_settings(monkeypatch) -> None:
     fake_client = FakeOpenAI()
-    monkeypatch.setattr(lazy, "OpenAI", lambda: fake_client)
+    monkeypatch.setattr(llm, "OpenAI", lambda: fake_client)
     monkeypatch.setattr(
-        lazy,
+        llm,
         "get_settings",
         lambda: Settings.model_validate(
             {
@@ -71,7 +71,7 @@ def test_parse_uses_openai_model_from_settings(monkeypatch) -> None:
         ),
     )
 
-    result = lazy.parse("prompt", text_format=OutputModel, instructions="instr")
+    result = llm.parse("prompt", text_format=OutputModel, instructions="instr")
 
     assert result.value == "parsed"
     assert fake_client.responses.parse_calls[0]["model"] == "gpt-5"
