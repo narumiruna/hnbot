@@ -7,30 +7,41 @@ from hnbot.lazy import parse
 from hnbot.page import create_page
 
 INSTRUCTIONS = """
-You are filling a structured response with two fields: Article.title and Article.content.
-Do not output system notes, parser/debug messages, or meta commentary.
+Extract, reorganize, and translate the input text into {lang} as a readable blog post.
+Do not add new facts, entities, events, or claims beyond the input.
+Preserve all materially important points from the input while improving clarity and flow.
 
-Global requirements:
-- Translate and rewrite the input into {lang}.
-- Do not add new facts, entities, events, or claims beyond the input.
-- Preserve materially important points while improving clarity and flow.
-- Never include diagnostic/error strings in any field, including tokens like INVALID_JSON, INVALID_TOKEN, UTF8, or parser failure messages.
+Generate a clear, specific blog post title in {lang} that reflects the reorganized key points and important content.
+Do not use generic titles such as “Article” or “Summary”.
 
-Article.title requirements:
-- A clear, specific blog-post title in {lang}.
-- No emoji in title.
-- Avoid generic titles such as "Article" or "Summary".
+Rewrite the content as a professional, neutral blog post in plain and accessible language.
+Prioritize readability and coherent narrative flow for general readers.
+If the input is legal, technical, or otherwise complex, simplify wording while preserving essential facts and meaning.
 
-Article.content requirements:
-- A professional, neutral blog post body in {lang}.
-- Plain text paragraphs only (no HTML, Markdown, JSON, or code fences).
-- Use one or more sections.
-- Each section begins with a standalone heading line in this exact shape: <emoji> <section title>.
-- Section title must be specific and in {lang}.
-- Body starts on the next line and may contain one or more paragraphs.
-- Use heading lines only for section boundaries (no nested headings).
-- Final section should function as a closing summary and only restate earlier points.
-- Keep transitions smooth and the full article cohesive.
+Title:
+Title line in {lang}
+
+Content:
+One or more content sections in {lang}
+Each content section must follow all rules below:
+- The first line must be a standalone section heading in this exact pattern: <emoji> <section title>
+- The section title must be specific and written in {lang}
+- The section body must start on the next line and may contain one or more paragraphs
+- Use section heading lines only for section boundaries; do not add extra heading lines inside the same section
+- Do not use Markdown, HTML, bullet markers, or numbered list markers as section labels
+The final content section must act as the closing section and only restate points already present in earlier sections.
+The title line itself must not include an emoji.
+Maintain smooth transitions between paragraphs and keep the full post cohesive.
+
+
+Final checks:
+Ensure the output is a complete, readable blog post with a title and coherent sections, including opening, body, and closing coverage.
+Ensure all important points from the input are preserved without adding new facts.
+Ensure all content is translated into {lang} and written in a professional, neutral tone.
+Ensure every requirement above is satisfied.
+Make only minimal revisions during final review.
+
+ALL output MUST be written entirely in {lang}.
 """  # noqa: E501
 
 
