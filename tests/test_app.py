@@ -4,6 +4,7 @@ from datetime import datetime
 
 import httpx
 
+from hnbot.app import MAX_COMMENT_MARKDOWN_CHARS
 from hnbot.app import App
 from hnbot.rss import HNEntry
 from hnbot.rss import HNFeed
@@ -110,3 +111,59 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
 
     assert f"hnbot:entry:{entry_one.id}" not in fake_redis._data
     assert fake_redis._data[f"hnbot:entry:{entry_two.id}"] == entry_two.comment_url
+
+
+def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
+    app = App()
+    captured_content: dict[str, str] = {}
+
+    def fake_get(url: str) -> httpx.Response:
+        request = httpx.Request("GET", url)
+        long_comment = "<p>" + ("a" * (MAX_COMMENT_MARKDOWN_CHARS + 100)) + "</p>"
+        return httpx.Response(200, request=request, text=long_comment)
+
+    async def fake_send_message(_message: str) -> None:
+        return None
+
+    def fake_generate_article(content: str) -> FakeArticle:
+        captured_content["value"] = content
+        return FakeArticle()
+
+    monkeypatch.setattr(app.http_client, "get", fake_get)
+    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
+
+    try:
+        assert app.process_entry(_entry("103")) is True
+    finally:
+        app.http_client.close()
+
+    assert len(captured_content["value"]) == MAX_COMMENT_MARKDOWN_CHARS
+    assert captured_content["value"] == "a" * MAX_COMMENT_MARKDOWN_CHARS
+
+
+def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
+    app = App()
+    captured_content: dict[str, str] = {}
+
+    def fake_get(url: str) -> httpx.Response:
+        request = httpx.Request("GET", url)
+        return httpx.Response(200, request=request, text="<p>short comment</p>")
+
+    async def fake_send_message(_message: str) -> None:
+        return None
+
+    def fake_generate_article(content: str) -> FakeArticle:
+        captured_content["value"] = content
+        return FakeArticle()
+
+    monkeypatch.setattr(app.http_client, "get", fake_get)
+    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
+
+    try:
+        assert app.process_entry(_entry("104")) is True
+    finally:
+        app.http_client.close()
+
+    assert captured_content["value"] == "short comment"

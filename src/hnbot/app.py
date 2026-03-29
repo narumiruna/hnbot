@@ -23,6 +23,7 @@ from hnbot.rss import get_hn_feed
 from hnbot.utils import html_to_markdown
 
 _DEFAULT_WAIT = wait_exponential_jitter(initial=1, max=8)
+MAX_COMMENT_MARKDOWN_CHARS = 20_000
 
 
 def _is_transient_fetch_error(exc: BaseException) -> bool:
@@ -148,7 +149,17 @@ class App:
     def _fetch_comment_markdown(self, entry: HNEntry) -> str:
         resp = self.http_client.get(entry.comment_url)
         resp.raise_for_status()
-        return html_to_markdown(resp.text)
+        content = html_to_markdown(resp.text)
+        if len(content) <= MAX_COMMENT_MARKDOWN_CHARS:
+            return content
+
+        logger.info(
+            "Truncating markdown for entry {} from {} to {} chars",
+            entry.id,
+            len(content),
+            MAX_COMMENT_MARKDOWN_CHARS,
+        )
+        return content[:MAX_COMMENT_MARKDOWN_CHARS]
 
     def process_entry(self, entry: HNEntry) -> bool:
         logger.info("Processing entry with id: {}", entry.id)
