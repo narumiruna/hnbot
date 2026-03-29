@@ -1,17 +1,16 @@
-from typing import Final
-
 from openai import OpenAI
 
-_MODEL: Final[str] = "gpt-5-mini"
+from hnbot.settings import get_settings
 
 
 def send(prompt: str, instructions: str | None = None) -> str:
     client = OpenAI()
+    settings = get_settings()
 
     response = client.responses.create(
         input=prompt,
         instructions=instructions,
-        model=_MODEL,
+        model=settings.openai_model,
     )
 
     if response.output_text is None:
@@ -22,11 +21,12 @@ def send(prompt: str, instructions: str | None = None) -> str:
 
 def parse[T](prompt: str, text_format: type[T], instructions: str | None = None) -> T:
     client = OpenAI()
+    settings = get_settings()
 
     response = client.responses.parse(
         input=prompt,
         instructions=instructions,
-        model=_MODEL,
+        model=settings.openai_model,
         text_format=text_format,
     )
 

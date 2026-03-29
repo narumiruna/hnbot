@@ -4,10 +4,10 @@ from datetime import datetime
 
 import httpx
 
-from hnbot.app import MAX_COMMENT_MARKDOWN_CHARS
 from hnbot.app import App
 from hnbot.rss import HNEntry
 from hnbot.rss import HNFeed
+from hnbot.settings import Settings
 
 
 @dataclass
@@ -39,6 +39,16 @@ def _entry(entry_id: str) -> HNEntry:
     )
 
 
+def _settings(**overrides: object) -> Settings:
+    return Settings.model_validate(
+        {
+            "bot_token": "bot-token",
+            "chat_id": "chat-id",
+            **overrides,
+        }
+    )
+
+
 def _http_status_error(status: int, url: str, retry_after: str | None = None) -> httpx.HTTPStatusError:
     request = httpx.Request("GET", url)
     headers = {"Retry-After": retry_after} if retry_after is not None else None
@@ -47,7 +57,7 @@ def _http_status_error(status: int, url: str, retry_after: str | None = None) ->
 
 
 def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
-    app = App()
+    app = App(_settings())
     call_count = {"count": 0}
 
     def fake_get(url: str) -> httpx.Response:
@@ -57,7 +67,7 @@ def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
         request = httpx.Request("GET", url)
         return httpx.Response(200, request=request, text="<p>comment markdown</p>")
 
-    async def fake_send_message(_message: str) -> None:
+    async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
         return None
 
     monkeypatch.setattr(app.http_client, "get", fake_get)
@@ -72,7 +82,7 @@ def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
 
 
 def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
-    app = App()
+    app = App(_settings())
     call_count = {"count": 0}
 
     def fake_get(url: str) -> httpx.Response:
@@ -89,7 +99,7 @@ def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
 
 
 def test_run_continues_and_marks_only_success(monkeypatch) -> None:
-    app = App()
+    app = App(_settings())
     fake_redis = FakeRedis()
     app.redis_client = fake_redis
 
@@ -114,15 +124,16 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
 
 
 def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
-    app = App()
+    cap = 20_000
+    app = App(_settings(max_comment_markdown_chars=cap))
     captured_content: dict[str, str] = {}
 
     def fake_get(url: str) -> httpx.Response:
         request = httpx.Request("GET", url)
-        long_comment = "<p>" + ("a" * (MAX_COMMENT_MARKDOWN_CHARS + 100)) + "</p>"
+        long_comment = "<p>" + ("a" * (cap + 100)) + "</p>"
         return httpx.Response(200, request=request, text=long_comment)
 
-    async def fake_send_message(_message: str) -> None:
+    async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
         return None
 
     def fake_generate_article(content: str) -> FakeArticle:
@@ -138,19 +149,19 @@ def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
     finally:
         app.http_client.close()
 
-    assert len(captured_content["value"]) == MAX_COMMENT_MARKDOWN_CHARS
-    assert captured_content["value"] == "a" * MAX_COMMENT_MARKDOWN_CHARS
+    assert len(captured_content["value"]) == cap
+    assert captured_content["value"] == "a" * cap
 
 
 def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
-    app = App()
+    app = App(_settings(max_comment_markdown_chars=20_000))
     captured_content: dict[str, str] = {}
 
     def fake_get(url: str) -> httpx.Response:
         request = httpx.Request("GET", url)
         return httpx.Response(200, request=request, text="<p>short comment</p>")
 
-    async def fake_send_message(_message: str) -> None:
+    async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
         return None
 
     def fake_generate_article(content: str) -> FakeArticle:

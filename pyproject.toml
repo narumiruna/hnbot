@@ -15,6 +15,7 @@ dependencies    = [
   "markdownify>=1.2.2",
   "openai>=2.30.0",
   "pydantic>=2.12.5",
+  "pydantic-settings>=2.13.1",
   "python-dotenv>=1.2.2",
   "rich>=14.3.2",
   "telegraph>=2.2.0",
