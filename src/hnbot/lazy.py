@@ -2,7 +2,7 @@ from typing import Final
 
 from openai import OpenAI
 
-_MODEL: Final[str] = "gpt-5-nano"
+_MODEL: Final[str] = "gpt-5-mini"
 
 
 def send(prompt: str, instructions: str | None = None) -> str:
