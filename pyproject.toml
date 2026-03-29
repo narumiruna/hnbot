@@ -1,16 +1,19 @@
 [project]
-name            = "pythontemplate"
+name            = "hnbot"
 version         = "0.0.0"
 description     = ""
 readme          = "README.md"
 requires-python = ">=3.12"
 authors         = [{ name = "narumi", email = "toucans-cutouts0f@icloud.com" }]
 dependencies    = [
+  "aiocache[redis]>=0.12.3",
+  "aiogram>=3.26.0",
+  "telegraph>=2.2.0",
   "typer>=0.21.1",
 ]
 
 [project.scripts]
-pythontemplate = "pythontemplate.cli:app"
+hnbot = "hnbot.cli:app"
 
 [dependency-groups]
 dev = [
