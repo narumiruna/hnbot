@@ -1,5 +1,6 @@
 import logging
 
+import logfire
 import typer
 from dotenv import find_dotenv
 from dotenv import load_dotenv
@@ -16,13 +17,14 @@ app = typer.Typer()
 
 @app.command()
 def main() -> None:
-    load_dotenv(
-        find_dotenv(),
-        override=True,
-    )
+    with logfire.span("hnbot.cli.main"):
+        load_dotenv(
+            find_dotenv(),
+            override=True,
+        )
 
-    settings = get_settings()
-    configure_logfire(settings)
+        settings = get_settings()
+        configure_logfire(settings)
 
-    app = App(settings)
-    app.run()
+        app = App(settings)
+        app.run()
