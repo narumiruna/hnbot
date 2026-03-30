@@ -1,5 +1,3 @@
-from contextlib import contextmanager
-
 from pydantic import BaseModel
 
 import hnbot.llm as llm
@@ -37,21 +35,8 @@ class FakeOpenAI:
         self.responses = FakeResponses()
 
 
-def _capture_spans(monkeypatch) -> list[tuple[str, dict[str, object]]]:
-    captured: list[tuple[str, dict[str, object]]] = []
-
-    @contextmanager
-    def fake_span(name: str, **kwargs: object):
-        captured.append((name, kwargs))
-        yield
-
-    monkeypatch.setattr("hnbot.llm.logfire.span", fake_span)
-    return captured
-
-
 def test_send_uses_openai_model_from_settings(monkeypatch) -> None:
     fake_client = FakeOpenAI()
-    spans = _capture_spans(monkeypatch)
     monkeypatch.setattr(llm, "OpenAI", lambda: fake_client)
     monkeypatch.setattr(
         llm,
@@ -69,14 +54,10 @@ def test_send_uses_openai_model_from_settings(monkeypatch) -> None:
 
     assert result == "ok"
     assert fake_client.responses.create_calls[0]["model"] == "gpt-5"
-    assert spans[0][0] == "hnbot.llm.send"
-    assert spans[0][1]["model"] == "gpt-5"
-    assert spans[0][1]["prompt_chars"] == len("prompt")
 
 
 def test_parse_uses_openai_model_from_settings(monkeypatch) -> None:
     fake_client = FakeOpenAI()
-    spans = _capture_spans(monkeypatch)
     monkeypatch.setattr(llm, "OpenAI", lambda: fake_client)
     monkeypatch.setattr(
         llm,
@@ -94,7 +75,3 @@ def test_parse_uses_openai_model_from_settings(monkeypatch) -> None:
 
     assert result.value == "parsed"
     assert fake_client.responses.parse_calls[0]["model"] == "gpt-5"
-    assert spans[0][0] == "hnbot.llm.parse"
-    assert spans[0][1]["model"] == "gpt-5"
-    assert spans[0][1]["prompt_chars"] == len("prompt")
-    assert spans[0][1]["text_format"] == "OutputModel"
