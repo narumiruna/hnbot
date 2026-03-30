@@ -94,7 +94,7 @@ def generate_article(html_content: str, lang: str = "Taiwanese") -> Article:
         return article
 
 
-async def generate_article_async(html_content: str, lang: str = "Taiwanese") -> Article:
+async def generate_article_async(html_content: str, lang: str = "Traditional Chinese (台灣正體中文)") -> Article:
     with logfire.span(
         "hnbot.article.generate",
         lang=lang,
