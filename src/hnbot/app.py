@@ -5,7 +5,6 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 
 import httpx
-import logfire
 import redis
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
@@ -91,18 +90,13 @@ def _log_retry(retry_state: RetryCallState) -> None:
 
 
 async def send_message(message: str, settings: Settings) -> None:
-    with logfire.span(
-        "hnbot.telegram.send_message",
-        chat_id=settings.chat_id,
-        message_chars=len(message),
-    ):
-        async with Bot(
-            token=settings.bot_token,
-            default=DefaultBotProperties(
-                parse_mode=ParseMode.HTML,
-            ),
-        ) as bot:
-            await bot.send_message(chat_id=settings.chat_id, text=message)
+    async with Bot(
+        token=settings.bot_token,
+        default=DefaultBotProperties(
+            parse_mode=ParseMode.HTML,
+        ),
+    ) as bot:
+        await bot.send_message(chat_id=settings.chat_id, text=message)
 
 
 class App:
@@ -125,41 +119,34 @@ class App:
         return asyncio.run(self._process_feed_entry(entry))
 
     async def _run_async(self) -> None:
-        with logfire.span("hnbot.run.feed_batch"):
-            try:
-                await self._run_feed_batch()
-            finally:
-                await self.http_client.aclose()
+        try:
+            await self._run_feed_batch()
+        finally:
+            await self.http_client.aclose()
 
     async def _run_feed_batch(self) -> None:
-        with logfire.span("hnbot.run.fetch_feed"):
-            feed = await get_hn_feed_async(self.http_client)
+        feed = await get_hn_feed_async(self.http_client)
         await self._process_feed_entries(feed.entries, feed.title)
 
     async def _process_feed_entries(self, entries: list[HNEntry], feed_title: str) -> None:
-        with logfire.span(
-            "hnbot.run.process_entries",
-            feed_title=feed_title,
-            entry_count=len(entries),
-        ):
-            # Sleep for a bit to avoid hitting the feed too quickly
-            await asyncio.sleep(0.5)
+        # Sleep for a bit to avoid hitting the feed too quickly
+        await asyncio.sleep(0.5)
 
-            fetch_semaphore = asyncio.Semaphore(self.settings.comments_fetch_concurrency)
-            pipeline_semaphore = asyncio.Semaphore(self.settings.article_pipeline_concurrency)
+        fetch_semaphore = asyncio.Semaphore(self.settings.comments_fetch_concurrency)
+        pipeline_semaphore = asyncio.Semaphore(self.settings.article_pipeline_concurrency)
 
-            tasks = [
-                asyncio.create_task(
-                    self._process_feed_entry(
-                        entry,
-                        fetch_semaphore=fetch_semaphore,
-                        pipeline_semaphore=pipeline_semaphore,
-                    )
+        tasks = [
+            asyncio.create_task(
+                self._process_feed_entry(
+                    entry,
+                    fetch_semaphore=fetch_semaphore,
+                    pipeline_semaphore=pipeline_semaphore,
                 )
-                for entry in entries
-            ]
-            if tasks:
-                await asyncio.gather(*tasks)
+            )
+            for entry in entries
+        ]
+        if tasks:
+            await asyncio.gather(*tasks)
 
     async def _process_feed_entry(
         self,
@@ -167,30 +154,24 @@ class App:
         fetch_semaphore: asyncio.Semaphore | None = None,
         pipeline_semaphore: asyncio.Semaphore | None = None,
     ) -> bool:
-        with logfire.span(
-            "hnbot.run.entry",
-            entry_id=entry.id,
-            comment_url=entry.comment_url,
-            link=entry.link,
+        key = f"hnbot:entry:{entry.id}"
+        already_processed = bool(self.redis_client.exists(key))
+
+        if already_processed:
+            logger.info("Already processed entry with id: {}", entry.id)
+            return True
+
+        if await self._process_entry_pipeline(
+            entry,
+            fetch_semaphore=fetch_semaphore,
+            pipeline_semaphore=pipeline_semaphore,
         ):
-            key = f"hnbot:entry:{entry.id}"
-            already_processed = bool(self.redis_client.exists(key))
+            self.redis_client.set(key, entry.comment_url)
+            logger.info("Marked entry as processed: {}", entry.id)
+            return True
 
-            if already_processed:
-                logger.info("Already processed entry with id: {}", entry.id)
-                return True
-
-            if await self._process_entry_pipeline(
-                entry,
-                fetch_semaphore=fetch_semaphore,
-                pipeline_semaphore=pipeline_semaphore,
-            ):
-                self.redis_client.set(key, entry.comment_url)
-                logger.info("Marked entry as processed: {}", entry.id)
-                return True
-
-            logger.warning("Skipping entry after failed processing: {}", entry.id)
-            return False
+        logger.warning("Skipping entry after failed processing: {}", entry.id)
+        return False
 
     @retry(
         stop=stop_after_attempt(3),
@@ -200,32 +181,20 @@ class App:
         reraise=True,
     )
     async def _fetch_comment_markdown(self, entry: HNEntry) -> str:
-        with logfire.span(
-            "hnbot.entry.fetch_comment_markdown",
-            entry_id=entry.id,
-            comment_url=entry.comment_url,
-            max_chars=self.settings.max_comment_markdown_chars,
-        ):
-            resp = await self.http_client.get(entry.comment_url)
-            resp.raise_for_status()
-            content = html_to_markdown(resp.text)
-            content_len = len(content)
-            if content_len <= self.settings.max_comment_markdown_chars:
-                return content
+        resp = await self.http_client.get(entry.comment_url)
+        resp.raise_for_status()
+        content = html_to_markdown(resp.text)
+        content_len = len(content)
+        if content_len <= self.settings.max_comment_markdown_chars:
+            return content
 
-            logger.info(
-                "Truncating markdown for entry {} from {} to {} chars",
-                entry.id,
-                content_len,
-                self.settings.max_comment_markdown_chars,
-            )
-            with logfire.span(
-                "hnbot.entry.truncate_comment_markdown",
-                entry_id=entry.id,
-                original_chars=content_len,
-                max_chars=self.settings.max_comment_markdown_chars,
-            ):
-                return content[: self.settings.max_comment_markdown_chars]
+        logger.info(
+            "Truncating markdown for entry {} from {} to {} chars",
+            entry.id,
+            content_len,
+            self.settings.max_comment_markdown_chars,
+        )
+        return content[: self.settings.max_comment_markdown_chars]
 
     async def _process_entry_pipeline(
         self,
@@ -233,64 +202,54 @@ class App:
         fetch_semaphore: asyncio.Semaphore | None = None,
         pipeline_semaphore: asyncio.Semaphore | None = None,
     ) -> bool:
-        with logfire.span(
-            "hnbot.run.entry.process",
-            entry_id=entry.id,
-            comment_url=entry.comment_url,
-            link=entry.link,
-        ):
-            logger.info("Processing entry with id: {}", entry.id)
+        logger.info("Processing entry with id: {}", entry.id)
 
-            try:
-                if fetch_semaphore is None:
+        try:
+            if fetch_semaphore is None:
+                content = await self._fetch_comment_markdown(entry)
+            else:
+                async with fetch_semaphore:
                     content = await self._fetch_comment_markdown(entry)
-                else:
-                    async with fetch_semaphore:
-                        content = await self._fetch_comment_markdown(entry)
-            except httpx.HTTPError:
-                logger.exception("Failed to fetch comments for entry {}", entry.id)
-                return False
+        except httpx.HTTPError:
+            logger.exception("Failed to fetch comments for entry {}", entry.id)
+            return False
 
-            try:
-                if pipeline_semaphore is None:
+        try:
+            if pipeline_semaphore is None:
+                summary, page_url = await asyncio.gather(
+                    self._summarize(content, entry.id),
+                    self._generate_page(content, entry.id),
+                )
+            else:
+                async with pipeline_semaphore:
                     summary, page_url = await asyncio.gather(
                         self._summarize(content, entry.id),
                         self._generate_page(content, entry.id),
                     )
-                else:
-                    async with pipeline_semaphore:
-                        summary, page_url = await asyncio.gather(
-                            self._summarize(content, entry.id),
-                            self._generate_page(content, entry.id),
-                        )
-            except (RuntimeError, ValueError):
-                logger.exception("Failed to generate/send article for entry {}", entry.id)
-                return False
+        except (RuntimeError, ValueError):
+            logger.exception("Failed to generate/send article for entry {}", entry.id)
+            return False
 
-            escaped_title = html.escape(entry.title)
-            message_parts = [f"<b>{escaped_title}</b>"]
-            if summary:
-                message_parts.append(html.escape(summary))
-            message_parts.append(
-                f'🔗 <a href="{html.escape(entry.link)}">原文連結</a>  '
-                f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  '
-                f'📝 <a href="{html.escape(page_url)}">完整筆記</a>'
-            )
-            message = "\n\n".join(message_parts)
+        escaped_title = html.escape(entry.title)
+        message_parts = [f"<b>{escaped_title}</b>"]
+        if summary:
+            message_parts.append(html.escape(summary))
+        message_parts.append(
+            f'🔗 <a href="{html.escape(entry.link)}">原文連結</a>  '
+            f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  '
+            f'📝 <a href="{html.escape(page_url)}">完整筆記</a>'
+        )
+        message = "\n\n".join(message_parts)
 
-            with logfire.span("hnbot.entry.send_message", entry_id=entry.id, chat_id=self.settings.chat_id):
-                await send_message(message, self.settings)
+        await send_message(message, self.settings)
 
-            logger.info("Successfully processed entry {}", entry.id)
-            return True
+        logger.info("Successfully processed entry {}", entry.id)
+        return True
 
     async def _summarize(self, content: str, entry_id: str) -> str:
-        with logfire.span("hnbot.entry.summarize", entry_id=entry_id):
-            summary = await summarize_async(content)
-            return summary.text
+        summary = await summarize_async(content)
+        return summary.text
 
     async def _generate_page(self, content: str, entry_id: str) -> str:
-        with logfire.span("hnbot.entry.generate_article", entry_id=entry_id):
-            article = await generate_article_async(content)
-        with logfire.span("hnbot.entry.create_page", entry_id=entry_id):
-            return await asyncio.to_thread(article.create_page)
+        article = await generate_article_async(content)
+        return await asyncio.to_thread(article.create_page)

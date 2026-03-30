@@ -1,5 +1,4 @@
 import asyncio
-from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
@@ -61,18 +60,6 @@ def _http_status_error(status: int, url: str, retry_after: str | None = None) ->
     headers = {"Retry-After": retry_after} if retry_after is not None else None
     response = httpx.Response(status, request=request, headers=headers)
     return httpx.HTTPStatusError("status error", request=request, response=response)
-
-
-def _capture_spans(monkeypatch) -> list[tuple[str, dict[str, object]]]:
-    captured: list[tuple[str, dict[str, object]]] = []
-
-    @contextmanager
-    def fake_span(name: str, **kwargs: object):
-        captured.append((name, kwargs))
-        yield
-
-    monkeypatch.setattr("hnbot.app.logfire.span", fake_span)
-    return captured
 
 
 def _close_app_client(app: App) -> None:
@@ -220,43 +207,6 @@ def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
         _close_app_client(app)
 
     assert captured_content["value"] == "short comment"
-
-
-def test_process_entry_emits_expected_spans(monkeypatch) -> None:
-    app = App(_settings(max_comment_markdown_chars=20_000))
-    app.redis_client = FakeRedis()
-    spans = _capture_spans(monkeypatch)
-
-    async def fake_get(url: str) -> httpx.Response:
-        request = httpx.Request("GET", url)
-        return httpx.Response(200, request=request, text="<p>short comment</p>")
-
-    async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
-        return None
-
-    async def fake_generate_article(_content: str) -> FakeArticle:
-        return FakeArticle()
-
-    async def fake_summarize_async(_content: str) -> FakeSummary:
-        return FakeSummary()
-
-    monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
-    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
-    monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
-
-    try:
-        assert app.process_entry(_entry("105")) is True
-    finally:
-        _close_app_client(app)
-
-    span_names = [name for name, _ in spans]
-    assert "hnbot.run.entry.process" in span_names
-    assert "hnbot.entry.fetch_comment_markdown" in span_names
-    assert "hnbot.entry.summarize" in span_names
-    assert "hnbot.entry.generate_article" in span_names
-    assert "hnbot.entry.create_page" in span_names
-    assert "hnbot.entry.send_message" in span_names
 
 
 def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -> None:
