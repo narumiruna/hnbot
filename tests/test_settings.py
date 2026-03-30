@@ -37,3 +37,21 @@ def test_settings_openai_model_from_env(monkeypatch) -> None:
 
     assert settings.openai_model == "gpt-5"
     get_settings.cache_clear()
+
+
+def test_settings_async_concurrency_defaults() -> None:
+    settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id"})
+
+    assert settings.comments_fetch_concurrency == 1
+    assert settings.article_pipeline_concurrency == 3
+
+
+def test_settings_async_concurrency_must_be_positive() -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate(
+            {
+                "bot_token": "bot-token",
+                "chat_id": "chat-id",
+                "comments_fetch_concurrency": 0,
+            }
+        )

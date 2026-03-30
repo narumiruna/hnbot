@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC
@@ -69,11 +70,16 @@ def _capture_spans(monkeypatch) -> list[tuple[str, dict[str, object]]]:
     return captured
 
 
+def _close_app_client(app: App) -> None:
+    asyncio.run(app.http_client.aclose())
+
+
 def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
     app = App(_settings())
+    app.redis_client = FakeRedis()
     call_count = {"count": 0}
 
-    def fake_get(url: str) -> httpx.Response:
+    async def fake_get(url: str) -> httpx.Response:
         call_count["count"] += 1
         if call_count["count"] == 1:
             raise _http_status_error(429, url, retry_after="0")
@@ -83,22 +89,26 @@ def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
     async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
         return None
 
+    async def fake_generate_article(_content: str) -> FakeArticle:
+        return FakeArticle()
+
     monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article", lambda _content: FakeArticle())
+    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
         assert app.process_entry(_entry("1")) is True
         assert call_count["count"] == 2
     finally:
-        app.http_client.close()
+        _close_app_client(app)
 
 
 def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
     app = App(_settings())
+    app.redis_client = FakeRedis()
     call_count = {"count": 0}
 
-    def fake_get(url: str) -> httpx.Response:
+    async def fake_get(url: str) -> httpx.Response:
         call_count["count"] += 1
         raise _http_status_error(429, url, retry_after="0")
 
@@ -108,7 +118,7 @@ def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
         assert app.process_entry(_entry("2")) is False
         assert call_count["count"] == 3
     finally:
-        app.http_client.close()
+        _close_app_client(app)
 
 
 def test_run_continues_and_marks_only_success(monkeypatch) -> None:
@@ -121,16 +131,16 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
     feed = HNFeed(title="HN", entries=[entry_one, entry_two])
     process_results = {"101": False, "102": True}
 
-    def fake_process_entry(entry: HNEntry) -> bool:
+    async def fake_get_hn_feed(_client) -> HNFeed:
+        return feed
+
+    async def fake_process_entry_pipeline(entry: HNEntry, **_kwargs: object) -> bool:
         return process_results[entry.id]
 
-    monkeypatch.setattr("hnbot.app.get_hn_feed", lambda: feed)
-    monkeypatch.setattr(app, "process_entry", fake_process_entry)
+    monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
+    monkeypatch.setattr(app, "_process_entry_pipeline", fake_process_entry_pipeline)
 
-    try:
-        app.run()
-    finally:
-        app.http_client.close()
+    app.run()
 
     assert f"hnbot:entry:{entry_one.id}" not in fake_redis._data
     assert fake_redis._data[f"hnbot:entry:{entry_two.id}"] == entry_two.comment_url
@@ -139,9 +149,10 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
 def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
     cap = 20_000
     app = App(_settings(max_comment_markdown_chars=cap))
+    app.redis_client = FakeRedis()
     captured_content: dict[str, str] = {}
 
-    def fake_get(url: str) -> httpx.Response:
+    async def fake_get(url: str) -> httpx.Response:
         request = httpx.Request("GET", url)
         long_comment = "<p>" + ("a" * (cap + 100)) + "</p>"
         return httpx.Response(200, request=request, text=long_comment)
@@ -149,18 +160,18 @@ def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
     async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
         return None
 
-    def fake_generate_article(content: str) -> FakeArticle:
+    async def fake_generate_article(content: str) -> FakeArticle:
         captured_content["value"] = content
         return FakeArticle()
 
     monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
         assert app.process_entry(_entry("103")) is True
     finally:
-        app.http_client.close()
+        _close_app_client(app)
 
     assert len(captured_content["value"]) == cap
     assert captured_content["value"] == "a" * cap
@@ -168,50 +179,55 @@ def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
 
 def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
     app = App(_settings(max_comment_markdown_chars=20_000))
+    app.redis_client = FakeRedis()
     captured_content: dict[str, str] = {}
 
-    def fake_get(url: str) -> httpx.Response:
+    async def fake_get(url: str) -> httpx.Response:
         request = httpx.Request("GET", url)
         return httpx.Response(200, request=request, text="<p>short comment</p>")
 
     async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
         return None
 
-    def fake_generate_article(content: str) -> FakeArticle:
+    async def fake_generate_article(content: str) -> FakeArticle:
         captured_content["value"] = content
         return FakeArticle()
 
     monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
         assert app.process_entry(_entry("104")) is True
     finally:
-        app.http_client.close()
+        _close_app_client(app)
 
     assert captured_content["value"] == "short comment"
 
 
 def test_process_entry_emits_expected_spans(monkeypatch) -> None:
     app = App(_settings(max_comment_markdown_chars=20_000))
+    app.redis_client = FakeRedis()
     spans = _capture_spans(monkeypatch)
 
-    def fake_get(url: str) -> httpx.Response:
+    async def fake_get(url: str) -> httpx.Response:
         request = httpx.Request("GET", url)
         return httpx.Response(200, request=request, text="<p>short comment</p>")
 
     async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
         return None
 
+    async def fake_generate_article(_content: str) -> FakeArticle:
+        return FakeArticle()
+
     monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article", lambda _content: FakeArticle())
+    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
         assert app.process_entry(_entry("105")) is True
     finally:
-        app.http_client.close()
+        _close_app_client(app)
 
     span_names = [name for name, _ in spans]
     assert "hnbot.run.entry.process" in span_names
@@ -219,3 +235,48 @@ def test_process_entry_emits_expected_spans(monkeypatch) -> None:
     assert "hnbot.entry.generate_article" in span_names
     assert "hnbot.entry.create_page" in span_names
     assert "hnbot.entry.send_message" in span_names
+
+
+def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -> None:
+    app = App(
+        _settings(
+            comments_fetch_concurrency=1,
+            article_pipeline_concurrency=3,
+        )
+    )
+    app.redis_client = FakeRedis()
+
+    feed = HNFeed(title="HN", entries=[_entry("201"), _entry("202"), _entry("203")])
+    fetch_active = {"value": 0, "max": 0}
+    send_order: list[str] = []
+
+    async def fake_get_hn_feed(_client) -> HNFeed:
+        return feed
+
+    async def fake_get(url: str) -> httpx.Response:
+        fetch_active["value"] += 1
+        fetch_active["max"] = max(fetch_active["max"], fetch_active["value"])
+        await asyncio.sleep(0.01)
+        fetch_active["value"] -= 1
+        request = httpx.Request("GET", url)
+        item_id = url.split("=")[-1]
+        return httpx.Response(200, request=request, text=f"<p>comment {item_id}</p>")
+
+    async def fake_generate_article(content: str) -> FakeArticle:
+        entry_id = content.rsplit(" ", 1)[-1]
+        delay = {"201": 0.06, "202": 0.02, "203": 0.01}[entry_id]
+        await asyncio.sleep(delay)
+        return FakeArticle(url=f"https://telegra.ph/{entry_id}")
+
+    async def fake_send_message(message: str, _settings_obj: Settings) -> None:
+        send_order.append(message.splitlines()[0].split("-")[-1])
+
+    monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
+    monkeypatch.setattr(app.http_client, "get", fake_get)
+    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
+
+    app.run()
+
+    assert fetch_active["max"] == 1
+    assert send_order != ["201", "202", "203"]

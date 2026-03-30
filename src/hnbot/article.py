@@ -4,6 +4,7 @@ import logfire
 from loguru import logger
 from pydantic import BaseModel
 
+from hnbot.llm import async_parse
 from hnbot.llm import parse
 from hnbot.page import create_page
 
@@ -73,6 +74,24 @@ def generate_article(html_content: str, lang: str = "Taiwanese") -> Article:
             return Article(content="[No content provided]")
 
         article = parse(
+            html_content,
+            text_format=Article,
+            instructions=INSTRUCTIONS.format(lang=lang),
+        )
+        logger.info("Article generated with title: {}", article.title)
+        return article
+
+
+async def generate_article_async(html_content: str, lang: str = "Taiwanese") -> Article:
+    with logfire.span(
+        "hnbot.article.generate",
+        lang=lang,
+        input_chars=len(html_content),
+    ):
+        if not html_content.strip():
+            return Article(content="[No content provided]")
+
+        article = await async_parse(
             html_content,
             text_format=Article,
             instructions=INSTRUCTIONS.format(lang=lang),
