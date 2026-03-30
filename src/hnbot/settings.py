@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     bot_token: str
     chat_id: str
 
+    logfire_token: str | None = None
+
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0

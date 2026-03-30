@@ -10,6 +10,7 @@ dependencies    = [
   "aiogram>=3.26.0",
   "feedparser>=6.0.12",
   "httpx>=0.28.1",
+  "logfire[redis]>=4.31.0",
   "loguru>=0.7.3",
   "markdownify>=1.2.2",
   "openai>=2.30.0",
