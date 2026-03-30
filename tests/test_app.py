@@ -127,7 +127,7 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
     feed = HNFeed(title="HN", entries=[entry_one, entry_two])
     process_results = {"101": False, "102": True}
 
-    async def fake_get_hn_feed(_client) -> HNFeed:
+    async def fake_get_hn_feed(_client, **_kwargs: object) -> HNFeed:
         return feed
 
     async def fake_process_entry_pipeline(entry: HNEntry, **_kwargs: object) -> bool:
@@ -222,7 +222,7 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
     fetch_active = {"value": 0, "max": 0}
     send_order: list[str] = []
 
-    async def fake_get_hn_feed(_client) -> HNFeed:
+    async def fake_get_hn_feed(_client, **_kwargs: object) -> HNFeed:
         return feed
 
     async def fake_get(url: str) -> httpx.Response:

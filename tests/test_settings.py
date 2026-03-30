@@ -55,3 +55,33 @@ def test_settings_async_concurrency_must_be_positive() -> None:
                 "comments_fetch_concurrency": 0,
             }
         )
+
+
+def test_settings_feed_points_default() -> None:
+    settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id"})
+    assert settings.feed_points == 100
+
+
+def test_settings_feed_points_override() -> None:
+    settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id", "feed_points": 200})
+    assert settings.feed_points == 200
+
+
+def test_settings_feed_points_must_be_positive() -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id", "feed_points": 0})
+
+
+def test_settings_batch_sleep_seconds_default() -> None:
+    settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id"})
+    assert settings.batch_sleep_seconds == 0.5
+
+
+def test_settings_batch_sleep_seconds_override() -> None:
+    settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id", "batch_sleep_seconds": 1.0})
+    assert settings.batch_sleep_seconds == 1.0
+
+
+def test_settings_batch_sleep_seconds_zero_is_valid() -> None:
+    settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id", "batch_sleep_seconds": 0.0})
+    assert settings.batch_sleep_seconds == 0.0

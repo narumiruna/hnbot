@@ -125,12 +125,12 @@ class App:
             await self.http_client.aclose()
 
     async def _run_feed_batch(self) -> None:
-        feed = await get_hn_feed_async(self.http_client)
+        feed = await get_hn_feed_async(self.http_client, points=self.settings.feed_points)
         await self._process_feed_entries(feed.entries, feed.title)
 
     async def _process_feed_entries(self, entries: list[HNEntry], feed_title: str) -> None:
         # Sleep for a bit to avoid hitting the feed too quickly
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(self.settings.batch_sleep_seconds)
 
         fetch_semaphore = asyncio.Semaphore(self.settings.comments_fetch_concurrency)
         pipeline_semaphore = asyncio.Semaphore(self.settings.article_pipeline_concurrency)

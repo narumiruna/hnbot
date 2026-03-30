@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     comments_fetch_concurrency: int = Field(default=1, ge=1)
     article_pipeline_concurrency: int = Field(default=3, ge=1)
 
+    feed_points: int = Field(default=100, ge=1)
+    batch_sleep_seconds: float = Field(default=0.5, ge=0.0)
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
