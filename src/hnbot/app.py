@@ -1,4 +1,5 @@
 import asyncio
+import html
 from datetime import UTC
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -17,6 +18,7 @@ from tenacity import stop_after_attempt
 from tenacity import wait_exponential_jitter
 
 from hnbot.article import generate_article_async
+from hnbot.article import summarize_async
 from hnbot.rss import HNEntry
 from hnbot.rss import get_hn_feed_async
 from hnbot.settings import Settings
@@ -251,28 +253,41 @@ class App:
 
             try:
                 if pipeline_semaphore is None:
-                    page_url = await self._generate_page(content, entry.id)
+                    summary, page_url = await asyncio.gather(
+                        self._summarize(content, entry.id),
+                        self._generate_page(content, entry.id),
+                    )
                 else:
                     async with pipeline_semaphore:
-                        page_url = await self._generate_page(content, entry.id)
+                        summary, page_url = await asyncio.gather(
+                            self._summarize(content, entry.id),
+                            self._generate_page(content, entry.id),
+                        )
             except (RuntimeError, ValueError):
                 logger.exception("Failed to generate/send article for entry {}", entry.id)
                 return False
 
-            message = "\n\n".join(
-                [
-                    entry.title,
-                    f"Link: {entry.link}",
-                    f"Comments: {entry.comment_url}",
-                    f"Note: {page_url}",
-                ]
+            escaped_title = html.escape(entry.title)
+            message_parts = [f"<b>{escaped_title}</b>"]
+            if summary:
+                message_parts.append(html.escape(summary))
+            message_parts.append(
+                f'🔗 <a href="{html.escape(entry.link)}">原文連結</a>  '
+                f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  '
+                f'📝 <a href="{html.escape(page_url)}">完整筆記</a>'
             )
+            message = "\n\n".join(message_parts)
 
             with logfire.span("hnbot.entry.send_message", entry_id=entry.id, chat_id=self.settings.chat_id):
                 await send_message(message, self.settings)
 
             logger.info("Successfully processed entry {}", entry.id)
             return True
+
+    async def _summarize(self, content: str, entry_id: str) -> str:
+        with logfire.span("hnbot.entry.summarize", entry_id=entry_id):
+            summary = await summarize_async(content)
+            return summary.text
 
     async def _generate_page(self, content: str, entry_id: str) -> str:
         with logfire.span("hnbot.entry.generate_article", entry_id=entry_id):

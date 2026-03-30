@@ -8,6 +8,18 @@ from hnbot.llm import async_parse
 from hnbot.llm import parse
 from hnbot.page import create_page
 
+SUMMARIZE_INSTRUCTIONS = """
+Task:
+Read the input and write a concise summary in Traditional Chinese (台灣正體中文) of no more than 100 characters.
+
+Hard constraints:
+- The summary MUST be written in Traditional Chinese (台灣正體中文).
+- Keep the summary to 100 characters or fewer.
+- Focus on the single most important point, finding, or topic.
+- Do not introduce facts, entities, or numbers not found in the input.
+- Use plain prose only — no bullet points, no line breaks, no markdown.
+"""
+
 INSTRUCTIONS = """
 Task:
 Convert the input into a coherent blog post written entirely in {lang}.
@@ -98,3 +110,21 @@ async def generate_article_async(html_content: str, lang: str = "Taiwanese") -> 
         )
         logger.info("Article generated with title: {}", article.title)
         return article
+
+
+class Summary(BaseModel):
+    text: str
+
+
+async def summarize_async(content: str) -> Summary:
+    with logfire.span("hnbot.article.summarize", input_chars=len(content)):
+        if not content.strip():
+            return Summary(text="")
+
+        summary = await async_parse(
+            content,
+            text_format=Summary,
+            instructions=SUMMARIZE_INSTRUCTIONS,
+        )
+        logger.info("Summary generated: {}", summary.text)
+        return summary

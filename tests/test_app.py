@@ -20,6 +20,11 @@ class FakeArticle:
         return self.url
 
 
+@dataclass
+class FakeSummary:
+    text: str = "測試摘要"
+
+
 class FakeRedis:
     def __init__(self) -> None:
         self._data: dict[str, str] = {}
@@ -92,8 +97,12 @@ def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
     async def fake_generate_article(_content: str) -> FakeArticle:
         return FakeArticle()
 
+    async def fake_summarize_async(_content: str) -> FakeSummary:
+        return FakeSummary()
+
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
@@ -164,8 +173,12 @@ def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
         captured_content["value"] = content
         return FakeArticle()
 
+    async def fake_summarize_async(_content: str) -> FakeSummary:
+        return FakeSummary()
+
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
@@ -193,8 +206,12 @@ def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
         captured_content["value"] = content
         return FakeArticle()
 
+    async def fake_summarize_async(_content: str) -> FakeSummary:
+        return FakeSummary()
+
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
@@ -220,8 +237,12 @@ def test_process_entry_emits_expected_spans(monkeypatch) -> None:
     async def fake_generate_article(_content: str) -> FakeArticle:
         return FakeArticle()
 
+    async def fake_summarize_async(_content: str) -> FakeSummary:
+        return FakeSummary()
+
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
@@ -232,6 +253,7 @@ def test_process_entry_emits_expected_spans(monkeypatch) -> None:
     span_names = [name for name, _ in spans]
     assert "hnbot.run.entry.process" in span_names
     assert "hnbot.entry.fetch_comment_markdown" in span_names
+    assert "hnbot.entry.summarize" in span_names
     assert "hnbot.entry.generate_article" in span_names
     assert "hnbot.entry.create_page" in span_names
     assert "hnbot.entry.send_message" in span_names
@@ -268,12 +290,19 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
         await asyncio.sleep(delay)
         return FakeArticle(url=f"https://telegra.ph/{entry_id}")
 
+    async def fake_summarize_async(_content: str) -> FakeSummary:
+        return FakeSummary()
+
     async def fake_send_message(message: str, _settings_obj: Settings) -> None:
-        send_order.append(message.splitlines()[0].split("-")[-1])
+        # First line is "<b>title-NNN</b>"; extract the entry number.
+        first_line = message.splitlines()[0]  # e.g. "<b>title-201</b>"
+        entry_num = first_line.split("-")[-1].removesuffix("</b>")
+        send_order.append(entry_num)
 
     monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     app.run()
