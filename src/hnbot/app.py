@@ -5,7 +5,7 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 
 import httpx
-import redis
+import redis.asyncio as aioredis
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -102,7 +102,7 @@ async def send_message(message: str, settings: Settings) -> None:
 class App:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.redis_client = redis.Redis(
+        self.redis_client = aioredis.Redis(
             host=settings.redis_host,
             port=settings.redis_port,
             db=settings.redis_db,
@@ -155,7 +155,7 @@ class App:
         pipeline_semaphore: asyncio.Semaphore | None = None,
     ) -> bool:
         key = f"hnbot:entry:{entry.id}"
-        already_processed = bool(self.redis_client.exists(key))
+        already_processed = bool(await self.redis_client.exists(key))
 
         if already_processed:
             logger.info("Already processed entry with id: {}", entry.id)
@@ -166,7 +166,7 @@ class App:
             fetch_semaphore=fetch_semaphore,
             pipeline_semaphore=pipeline_semaphore,
         ):
-            self.redis_client.set(key, entry.comment_url)
+            await self.redis_client.set(key, entry.comment_url)
             logger.info("Marked entry as processed: {}", entry.id)
             return True
 

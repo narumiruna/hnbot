@@ -28,10 +28,10 @@ class FakeRedis:
     def __init__(self) -> None:
         self._data: dict[str, str] = {}
 
-    def exists(self, key: str) -> bool:
+    async def exists(self, key: str) -> bool:
         return key in self._data
 
-    def set(self, key: str, value: str) -> None:
+    async def set(self, key: str, value: str) -> None:
         self._data[key] = value
 
 
