@@ -4,7 +4,6 @@ from loguru import logger
 from pydantic import BaseModel
 
 from hnbot.llm import async_parse
-from hnbot.llm import parse
 from hnbot.page import create_page
 
 SUMMARIZE_INSTRUCTIONS = """
@@ -69,19 +68,6 @@ class Article(BaseModel):
 
         logger.info("Telegraph page created: {}", page_url)
         return page_url
-
-
-def generate_article(html_content: str, lang: str = "Taiwanese") -> Article:
-    if not html_content.strip():
-        return Article(content="[No content provided]")
-
-    article = parse(
-        html_content,
-        text_format=Article,
-        instructions=INSTRUCTIONS.format(lang=lang),
-    )
-    logger.info("Article generated with title: {}", article.title)
-    return article
 
 
 async def generate_article_async(html_content: str, lang: str = "Traditional Chinese (台灣正體中文)") -> Article:
