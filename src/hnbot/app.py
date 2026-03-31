@@ -16,8 +16,8 @@ from tenacity import retry_if_exception
 from tenacity import stop_after_attempt
 from tenacity import wait_exponential_jitter
 
+from hnbot.article import Article
 from hnbot.article import generate_article_async
-from hnbot.article import summarize_async
 from hnbot.rss import HNEntry
 from hnbot.rss import get_hn_feed_async
 from hnbot.settings import Settings
@@ -216,24 +216,18 @@ class App:
 
         try:
             if pipeline_semaphore is None:
-                summary, page_url = await asyncio.gather(
-                    self._summarize(content, entry.id),
-                    self._generate_page(content, entry.id),
-                )
+                article, page_url = await self._generate_article(content, entry.id)
             else:
                 async with pipeline_semaphore:
-                    summary, page_url = await asyncio.gather(
-                        self._summarize(content, entry.id),
-                        self._generate_page(content, entry.id),
-                    )
+                    article, page_url = await self._generate_article(content, entry.id)
         except (RuntimeError, ValueError):
             logger.exception("Failed to generate/send article for entry {}", entry.id)
             return False
 
         escaped_title = html.escape(entry.title)
         message_parts = [f"<b>{escaped_title}</b>"]
-        if summary:
-            message_parts.append(html.escape(summary))
+        if article.summary:
+            message_parts.append(html.escape(article.summary))
         message_parts.append(
             f'🔗 <a href="{html.escape(entry.link)}">原文連結</a>  '
             f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  '
@@ -246,10 +240,7 @@ class App:
         logger.info("Successfully processed entry {}", entry.id)
         return True
 
-    async def _summarize(self, content: str, entry_id: str) -> str:
-        summary = await summarize_async(content)
-        return summary.text
-
-    async def _generate_page(self, content: str, entry_id: str) -> str:
+    async def _generate_article(self, content: str, _entry_id: str) -> tuple[Article, str]:
         article = await generate_article_async(content)
-        return await asyncio.to_thread(article.create_page)
+        page_url = await asyncio.to_thread(article.create_page)
+        return article, page_url

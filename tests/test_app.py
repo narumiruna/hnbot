@@ -14,14 +14,10 @@ from hnbot.settings import Settings
 @dataclass
 class FakeArticle:
     url: str = "https://telegra.ph/fake"
+    summary: str = "整合摘要"
 
     def create_page(self) -> str:
         return self.url
-
-
-@dataclass
-class FakeSummary:
-    text: str = "測試摘要"
 
 
 class FakeRedis:
@@ -84,12 +80,8 @@ def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
     async def fake_generate_article(_content: str) -> FakeArticle:
         return FakeArticle()
 
-    async def fake_summarize_async(_content: str) -> FakeSummary:
-        return FakeSummary()
-
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
-    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
@@ -160,12 +152,8 @@ def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
         captured_content["value"] = content
         return FakeArticle()
 
-    async def fake_summarize_async(_content: str) -> FakeSummary:
-        return FakeSummary()
-
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
-    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
@@ -193,12 +181,8 @@ def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
         captured_content["value"] = content
         return FakeArticle()
 
-    async def fake_summarize_async(_content: str) -> FakeSummary:
-        return FakeSummary()
-
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
-    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
@@ -240,9 +224,6 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
         await asyncio.sleep(delay)
         return FakeArticle(url=f"https://telegra.ph/{entry_id}")
 
-    async def fake_summarize_async(_content: str) -> FakeSummary:
-        return FakeSummary()
-
     async def fake_send_message(message: str, _settings_obj: Settings) -> None:
         # First line is "<b>title-NNN</b>"; extract the entry number.
         first_line = message.splitlines()[0]  # e.g. "<b>title-201</b>"
@@ -252,7 +233,6 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
     monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
-    monkeypatch.setattr("hnbot.app.summarize_async", fake_summarize_async)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     app.run()
