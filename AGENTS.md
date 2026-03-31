@@ -39,3 +39,19 @@
 ## Security & Configuration Tips
 - Do not commit secrets or real tokens; use `.env.example` placeholders.
 - If dependencies change, update lockfile (`uv lock`) so CI and local runs stay reproducible.
+
+## Gotcha
+
+- `GOTCHA.md` MUST NOT be assumed to be auto-loaded.
+- The agent MUST first look for `GOTCHA.md` (case-sensitive) in the project root.
+- If a GOTCHA file exists, the agent MUST read relevant entries and explicitly apply them in diagnosis and proposed fixes.
+- If the agent makes a mistake during the task, the agent MUST create `GOTCHA.md` first when it does not exist, then add or update a `GOTCHA.md` entry in the same session; the entry MUST describe only **non-obvious, experience-derived pitfalls** that required debugging to understand.
+
+## Taste
+
+- `TASTE.md` MUST NOT be assumed to be auto-loaded.
+- The agent MUST first look for `TASTE.md` (case-sensitive) in the project root.
+- If a TASTE file exists, the agent MUST read relevant entries and explicitly apply them in recommendations and implementations.
+- If the user requests a preference that the agent did not anticipate, the agent MUST update `TASTE.md` in the same turn.
+- If an update to `TASTE.md` is required and the file does not exist, the agent MUST create `TASTE.md` first in the project root.
+- Each `TASTE.md` entry MUST capture exactly one reusable preference signal.
