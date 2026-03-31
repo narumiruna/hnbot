@@ -31,9 +31,10 @@ def main(id: int = 47581701) -> None:
     article = asyncio.run(generate_article_async(markdown))
 
     print(f"Generated article title: {article.title}")
-    print(f"Generated article content: {article.content[:100]}...")
+    print(f"Generated article summary: {article.summary}")
+    print(f"Generated article content: {article.render_content_text()[:100]}...")
 
-    (tmp_dir / "article.txt").write_text(article.build_text(), encoding="utf-8")
+    (tmp_dir / "article.txt").write_text(article.render_content_text(), encoding="utf-8")
 
     page_url = article.create_page()
     print(f"Telegraph page URL: {page_url}")
