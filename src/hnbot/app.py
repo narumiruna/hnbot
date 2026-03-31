@@ -166,7 +166,7 @@ class Notifier:
         await send_message(message, self.settings)
 
 
-async def _guarded[T](coro: Awaitable[T], semaphore: asyncio.Semaphore | None) -> T:
+async def _with_optional_semaphore[T](coro: Awaitable[T], semaphore: asyncio.Semaphore | None) -> T:
     if semaphore is None:
         return await coro
     async with semaphore:
@@ -260,13 +260,15 @@ class App:
         logger.info("Processing entry with id: {}", entry.id)
 
         try:
-            content = await _guarded(self.fetcher.fetch(entry), fetch_semaphore)
+            content = await _with_optional_semaphore(self.fetcher.fetch(entry), fetch_semaphore)
         except httpx.HTTPError:
             logger.exception("Failed to fetch comments for entry {}", entry.id)
             return False
 
         try:
-            article, page_url = await _guarded(self.pipeline.generate(content, entry.id), pipeline_semaphore)
+            article, page_url = await _with_optional_semaphore(
+                self.pipeline.generate(content, entry.id), pipeline_semaphore
+            )
         except (RuntimeError, ValueError):
             logger.exception("Failed to generate/send article for entry {}", entry.id)
             return False
