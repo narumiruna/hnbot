@@ -18,7 +18,7 @@ Hard constraints:
 - Use plain prose only — no bullet points, no line breaks, no markdown.
 """
 
-INSTRUCTIONS = """
+BLOG_INSTRUCTIONS = """
 Task:
 Convert the input into a coherent blog post written entirely in {lang}.
 
@@ -78,7 +78,7 @@ async def generate_article_async(html_content: str, lang: str = "Traditional Chi
     article = await async_parse(
         html_content,
         text_format=Article,
-        instructions=INSTRUCTIONS.format(lang=lang),
+        instructions=BLOG_INSTRUCTIONS.format(lang=lang),
     )
     logger.info("Article generated with title: {}", article.title)
     return article
