@@ -1,5 +1,6 @@
 import asyncio
 import html
+from collections.abc import Awaitable
 from datetime import UTC
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -165,6 +166,13 @@ class Notifier:
         await send_message(message, self.settings)
 
 
+async def _with_optional_semaphore[T](coro: Awaitable[T], semaphore: asyncio.Semaphore | None) -> T:
+    if semaphore is None:
+        return await coro
+    async with semaphore:
+        return await coro
+
+
 class App:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -192,6 +200,7 @@ class App:
             await self._run_feed_batch()
         finally:
             await self.http_client.aclose()
+            await self.redis_client.aclose()
 
     async def _run_feed_batch(self) -> None:
         feed = await get_hn_feed_async(self.http_client, points=self.settings.feed_points)
@@ -251,21 +260,15 @@ class App:
         logger.info("Processing entry with id: {}", entry.id)
 
         try:
-            if fetch_semaphore is None:
-                content = await self.fetcher.fetch(entry)
-            else:
-                async with fetch_semaphore:
-                    content = await self.fetcher.fetch(entry)
+            content = await _with_optional_semaphore(self.fetcher.fetch(entry), fetch_semaphore)
         except httpx.HTTPError:
             logger.exception("Failed to fetch comments for entry {}", entry.id)
             return False
 
         try:
-            if pipeline_semaphore is None:
-                article, page_url = await self.pipeline.generate(content, entry.id)
-            else:
-                async with pipeline_semaphore:
-                    article, page_url = await self.pipeline.generate(content, entry.id)
+            article, page_url = await _with_optional_semaphore(
+                self.pipeline.generate(content, entry.id), pipeline_semaphore
+            )
         except (RuntimeError, ValueError):
             logger.exception("Failed to generate/send article for entry {}", entry.id)
             return False

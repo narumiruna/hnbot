@@ -32,6 +32,9 @@ class FakeRedis:
     async def set(self, key: str, value: str) -> None:
         self._data[key] = value
 
+    async def aclose(self) -> None:
+        pass
+
 
 def _entry(entry_id: str) -> HNEntry:
     return HNEntry(

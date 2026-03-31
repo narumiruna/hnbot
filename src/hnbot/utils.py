@@ -9,12 +9,7 @@ from hnbot.settings import Settings
 
 
 def normalize_whitespace(text: str) -> str:
-    lines = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped:
-            lines += [stripped]
-    return "\n".join(lines)
+    return "\n".join(stripped for line in text.splitlines() if (stripped := line.strip()))
 
 
 def html_to_markdown(content: str | bytes) -> str:
@@ -35,9 +30,7 @@ def html_to_markdown(content: str | bytes) -> str:
 
 def read_html_content(f: str | Path) -> str:
     content = str(charset_normalizer.from_path(f).best())
-
-    md = markdownify(content, strip=["a", "img"])
-    return normalize_whitespace(md)
+    return html_to_markdown(content)
 
 
 def logfire_is_enabled(settings: Settings) -> bool:
