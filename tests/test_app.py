@@ -6,6 +6,8 @@ from datetime import datetime
 import httpx
 
 from hnbot.app import App
+from hnbot.app import ArticlePipeline
+from hnbot.app import Notifier
 from hnbot.rss import HNEntry
 from hnbot.rss import HNFeed
 from hnbot.settings import Settings
@@ -239,3 +241,40 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
 
     assert fetch_active["max"] == 1
     assert send_order != ["201", "202", "203"]
+
+
+def test_notifier_build_message_escapes_text_and_links() -> None:
+    notifier = Notifier()
+    entry = HNEntry(
+        title="title-<1>",
+        link="https://example.com/?a=<tag>",
+        comment_url="https://news.ycombinator.com/item?id=1&x=<z>",
+        id="1",
+        published_at=datetime.now(UTC),
+    )
+    article = FakeArticle(url="https://telegra.ph/fake?x=<x>", summary="摘要 <b>text</b>")
+
+    message = notifier.build_message(entry, article, article.url)
+
+    assert "<b>title-&lt;1&gt;</b>" in message
+    assert "摘要 &lt;b&gt;text&lt;/b&gt;" in message
+    assert 'href="https://example.com/?a=&lt;tag&gt;"' in message
+    assert 'href="https://news.ycombinator.com/item?id=1&amp;x=&lt;z&gt;"' in message
+    assert 'href="https://telegra.ph/fake?x=&lt;x&gt;"' in message
+
+
+def test_article_pipeline_generates_article_and_page_url(monkeypatch) -> None:
+    pipeline = ArticlePipeline()
+    calls: dict[str, object] = {}
+
+    async def fake_generate_article(content: str) -> FakeArticle:
+        calls["content"] = content
+        return FakeArticle(url="https://telegra.ph/from-pipeline", summary="summary")
+
+    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+
+    article, page_url = asyncio.run(pipeline.generate("markdown-content", "entry-1"))
+
+    assert calls["content"] == "markdown-content"
+    assert article.summary == "summary"
+    assert page_url == "https://telegra.ph/from-pipeline"

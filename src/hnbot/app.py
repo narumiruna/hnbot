@@ -3,6 +3,7 @@ import html
 from datetime import UTC
 from datetime import datetime
 from email.utils import parsedate_to_datetime
+from typing import Protocol
 
 import httpx
 import redis.asyncio as aioredis
@@ -99,6 +100,71 @@ async def send_message(message: str, settings: Settings) -> None:
         await bot.send_message(chat_id=settings.chat_id, text=message)
 
 
+class SummaryCarrier(Protocol):
+    summary: str
+
+
+class CommentFetcher:
+    def __init__(self, http_client: httpx.AsyncClient, settings: Settings) -> None:
+        self.http_client = http_client
+        self.settings = settings
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=_retry_wait,
+        retry=retry_if_exception(_is_transient_fetch_error),
+        before_sleep=_log_retry,
+        reraise=True,
+    )
+    async def _fetch_with_retry(self, entry: HNEntry) -> str:
+        resp = await self.http_client.get(entry.comment_url)
+        resp.raise_for_status()
+        content = html_to_markdown(resp.text)
+        content_len = len(content)
+        if content_len <= self.settings.max_comment_markdown_chars:
+            return content
+
+        logger.info(
+            "Truncating markdown for entry {} from {} to {} chars",
+            entry.id,
+            content_len,
+            self.settings.max_comment_markdown_chars,
+        )
+        return content[: self.settings.max_comment_markdown_chars]
+
+    async def fetch(self, entry: HNEntry) -> str:
+        return await self._fetch_with_retry(entry)
+
+
+class ArticlePipeline:
+    async def generate(self, content: str, _entry_id: str) -> tuple[Article, str]:
+        article = await generate_article_async(content)
+        page_url = await asyncio.to_thread(article.create_page)
+        return article, page_url
+
+
+class Notifier:
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.settings = settings
+
+    def build_message(self, entry: HNEntry, article: SummaryCarrier, page_url: str) -> str:
+        escaped_title = html.escape(entry.title)
+        message_parts = [f"<b>{escaped_title}</b>"]
+        if article.summary:
+            message_parts.append(html.escape(article.summary))
+        message_parts.append(
+            f'🔗 <a href="{html.escape(entry.link)}">原文連結</a>  '
+            f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  '
+            f'📝 <a href="{html.escape(page_url)}">完整筆記</a>'
+        )
+        return "\n\n".join(message_parts)
+
+    async def send(self, message: str) -> None:
+        if self.settings is None:
+            raise ValueError("Notifier settings are not configured.")
+        await send_message(message, self.settings)
+
+
 class App:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -111,6 +177,9 @@ class App:
             timeout=httpx.Timeout(settings.http_timeout_seconds),
             headers={"User-Agent": settings.http_user_agent},
         )
+        self.fetcher = CommentFetcher(self.http_client, self.settings)
+        self.pipeline = ArticlePipeline()
+        self.notifier = Notifier(self.settings)
 
     def run(self) -> None:
         asyncio.run(self._run_async())
@@ -173,29 +242,6 @@ class App:
         logger.warning("Skipping entry after failed processing: {}", entry.id)
         return False
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=_retry_wait,
-        retry=retry_if_exception(_is_transient_fetch_error),
-        before_sleep=_log_retry,
-        reraise=True,
-    )
-    async def _fetch_comment_markdown(self, entry: HNEntry) -> str:
-        resp = await self.http_client.get(entry.comment_url)
-        resp.raise_for_status()
-        content = html_to_markdown(resp.text)
-        content_len = len(content)
-        if content_len <= self.settings.max_comment_markdown_chars:
-            return content
-
-        logger.info(
-            "Truncating markdown for entry {} from {} to {} chars",
-            entry.id,
-            content_len,
-            self.settings.max_comment_markdown_chars,
-        )
-        return content[: self.settings.max_comment_markdown_chars]
-
     async def _process_entry_pipeline(
         self,
         entry: HNEntry,
@@ -206,41 +252,27 @@ class App:
 
         try:
             if fetch_semaphore is None:
-                content = await self._fetch_comment_markdown(entry)
+                content = await self.fetcher.fetch(entry)
             else:
                 async with fetch_semaphore:
-                    content = await self._fetch_comment_markdown(entry)
+                    content = await self.fetcher.fetch(entry)
         except httpx.HTTPError:
             logger.exception("Failed to fetch comments for entry {}", entry.id)
             return False
 
         try:
             if pipeline_semaphore is None:
-                article, page_url = await self._generate_article(content, entry.id)
+                article, page_url = await self.pipeline.generate(content, entry.id)
             else:
                 async with pipeline_semaphore:
-                    article, page_url = await self._generate_article(content, entry.id)
+                    article, page_url = await self.pipeline.generate(content, entry.id)
         except (RuntimeError, ValueError):
             logger.exception("Failed to generate/send article for entry {}", entry.id)
             return False
 
-        escaped_title = html.escape(entry.title)
-        message_parts = [f"<b>{escaped_title}</b>"]
-        if article.summary:
-            message_parts.append(html.escape(article.summary))
-        message_parts.append(
-            f'🔗 <a href="{html.escape(entry.link)}">原文連結</a>  '
-            f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  '
-            f'📝 <a href="{html.escape(page_url)}">完整筆記</a>'
-        )
-        message = "\n\n".join(message_parts)
+        message = self.notifier.build_message(entry, article, page_url)
 
-        await send_message(message, self.settings)
+        await self.notifier.send(message)
 
         logger.info("Successfully processed entry {}", entry.id)
         return True
-
-    async def _generate_article(self, content: str, _entry_id: str) -> tuple[Article, str]:
-        article = await generate_article_async(content)
-        page_url = await asyncio.to_thread(article.create_page)
-        return article, page_url
