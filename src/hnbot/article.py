@@ -28,8 +28,11 @@ Hard constraints:
 - Do not add new facts, entities, events, numbers, or claims.
 - Use a professional, neutral, easy-to-read tone.
 - Simplify complex wording when needed, but keep original meaning.
+- Plain text only: do NOT use Markdown or HTML anywhere in the output.
+  Forbidden: # headings, ## headings, **bold**, *italic*, bullet markers (-, *, +),
+  numbered list markers (1. 2. 3.), <tag> HTML tags.
 
-Output schema:
+Output schema (use these exact labels, nothing else before "Title:" or between "Title:" and "Content:"):
 Title:
 <one specific title in {lang}, no emoji, not generic like "Article" or "Summary">
 
@@ -37,18 +40,20 @@ Content:
 <one or more sections in {lang}>
 
 Section rules:
-- Each section starts with exactly one heading line: <emoji> <section title>
-- Section title must be specific and in {lang}
-- Section body starts on the next line and can have one or more paragraphs
-- Do not add extra heading lines inside the same section
-- Do not use Markdown/HTML heading syntax, bullet markers, or numbered list markers as section labels
-- Keep transitions smooth and the whole post cohesive
-- The final section is a closing section that only restates earlier points
+- Each section starts with exactly one heading line in the format: <emoji> <section title>
+  Example: 🔍 研究背景
+- The section title must be specific and written in {lang}.
+- The section body starts on the next line after the heading and contains one or more plain-text paragraphs.
+- Do not add extra heading lines inside the same section.
+- Do not use Markdown or HTML heading syntax, bullet markers, or numbered list markers
+  anywhere — not even inside section bodies.
+- Keep transitions smooth and the whole post cohesive.
+- The final section is a closing section that only restates earlier points.
 
 Final checks:
-- Include opening, body, and closing coverage
-- Ensure all content is in {lang}
-- Ensure every constraint is satisfied
+- Include opening, body, and closing coverage.
+- Ensure all content is in {lang}.
+- Ensure every constraint above is satisfied.
 """
 
 
