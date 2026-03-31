@@ -27,6 +27,7 @@ Hard constraints:
 - Do not add new facts, entities, events, numbers, or claims.
 - Use a professional, neutral, easy-to-read tone.
 - Simplify complex wording when needed, but keep original meaning.
+- All content must be less than 5000 characters in total.
 
 Output schema:
 Title:
