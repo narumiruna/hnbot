@@ -16,7 +16,7 @@ Hard constraints:
 - Do not add new facts, entities, events, numbers, or claims.
 - Use a professional, neutral, easy-to-read tone.
 - Simplify complex wording when needed, but keep original meaning.
-- Summary must be <= 100 characters.
+- Summary must be <= 500 characters.
 - Each section.content must be <= 1000 characters.
 - All content must be less than 5000 characters in total.
 
