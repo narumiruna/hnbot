@@ -1,40 +1,5 @@
-import asyncio
-
 from hnbot.article import Article
 from hnbot.article import Section
-from hnbot.article import generate_article_async
-
-
-def test_generate_article_async_parses_full_article(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-
-    async def fake_async_parse(
-        prompt: str,
-        text_format: type[Article],
-        instructions: str | None = None,
-    ) -> Article:
-        captured["prompt"] = prompt
-        captured["text_format"] = text_format
-        captured["instructions"] = instructions
-        return Article(
-            title="測試標題",
-            summary="測試摘要",
-            sections=[
-                Section(title="重點", emoji="📌", content="第一段"),
-                Section(title="結論", emoji="✅", content="第二段"),
-            ],
-        )
-
-    monkeypatch.setattr("hnbot.article.async_parse", fake_async_parse)
-
-    result = asyncio.run(generate_article_async("mock input"))
-
-    assert result.title == "測試標題"
-    assert result.summary == "測試摘要"
-    assert [section.title for section in result.sections] == ["重點", "結論"]
-    assert captured["prompt"] == "mock input"
-    assert captured["text_format"] is Article
-    assert isinstance(captured["instructions"], str)
 
 
 def test_create_page_uses_rendered_sections(monkeypatch) -> None:

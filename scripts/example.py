@@ -6,12 +6,15 @@ import typer
 from dotenv import find_dotenv
 from dotenv import load_dotenv
 
-from hnbot.article import generate_article_async
+from hnbot.article import generate_article
+from hnbot.settings import get_settings
 from hnbot.utils import html_to_markdown
 
 
 def main(id: int = 47581701) -> None:
     load_dotenv(find_dotenv(), override=True)
+
+    settings = get_settings()
 
     tmp_dir = Path("./tmp")
     tmp_dir.mkdir(exist_ok=True)
@@ -28,7 +31,7 @@ def main(id: int = 47581701) -> None:
 
     (tmp_dir / "sample.md").write_text(markdown, encoding="utf-8")
 
-    article = asyncio.run(generate_article_async(markdown))
+    article = asyncio.run(generate_article(markdown, settings))
 
     print(f"Generated article title: {article.title}")
     print(f"Generated article summary: {article.summary}")

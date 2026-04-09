@@ -19,7 +19,7 @@ from tenacity import stop_after_attempt
 from tenacity import wait_exponential_jitter
 
 from hnbot.article import Article
-from hnbot.article import generate_article_async
+from hnbot.article import generate_article
 from hnbot.rss import HNEntry
 from hnbot.rss import get_hn_feed_async
 from hnbot.settings import Settings
@@ -120,26 +120,15 @@ class CommentFetcher:
     async def _fetch_with_retry(self, entry: HNEntry) -> str:
         resp = await self.http_client.get(entry.comment_url)
         resp.raise_for_status()
-        content = html_to_markdown(resp.text)
-        content_len = len(content)
-        if content_len <= self.settings.max_comment_markdown_chars:
-            return content
-
-        logger.info(
-            "Truncating markdown for entry {} from {} to {} chars",
-            entry.id,
-            content_len,
-            self.settings.max_comment_markdown_chars,
-        )
-        return content[: self.settings.max_comment_markdown_chars]
+        return html_to_markdown(resp.text)
 
     async def fetch(self, entry: HNEntry) -> str:
         return await self._fetch_with_retry(entry)
 
 
 class ArticlePipeline:
-    async def generate(self, content: str, _entry_id: str) -> tuple[Article, str]:
-        article = await generate_article_async(content)
+    async def generate(self, content: str, settings: Settings) -> tuple[Article, str]:
+        article = await generate_article(content, settings)
         page_url = await asyncio.to_thread(article.create_page)
         return article, page_url
 
@@ -267,7 +256,7 @@ class App:
 
         try:
             article, page_url = await _with_optional_semaphore(
-                self.pipeline.generate(content, entry.id), pipeline_semaphore
+                self.pipeline.generate(content, self.settings), pipeline_semaphore
             )
         except (RuntimeError, ValueError):
             logger.exception("Failed to generate/send article for entry {}", entry.id)

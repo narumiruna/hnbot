@@ -1,11 +1,14 @@
+import asyncio
 import html
 
+from chonkie.chunker import RecursiveChunker
 from loguru import logger
 from pydantic import BaseModel
 from pydantic import Field
 
 from hnbot.llm import async_parse
 from hnbot.page import create_page
+from hnbot.settings import Settings
 
 ARTICLE_INSTRUCTIONS = """
 Task:
@@ -66,7 +69,7 @@ class Article(BaseModel):
         return page_url
 
 
-async def generate_article_async(html_content: str, lang: str = "Traditional Chinese (台灣正體中文)") -> Article:
+async def _generate_article(html_content: str, settings: Settings) -> Article:
     if not html_content.strip():
         return Article(
             title="無內容",
@@ -77,7 +80,24 @@ async def generate_article_async(html_content: str, lang: str = "Traditional Chi
     article = await async_parse(
         html_content,
         text_format=Article,
-        instructions=ARTICLE_INSTRUCTIONS.format(lang=lang),
+        instructions=ARTICLE_INSTRUCTIONS.format(lang=settings.article_lang),
     )
+
+    logger.info("Article generated with title: {}", article.title)
+    return article
+
+
+async def generate_article(html_content: str, settings: Settings) -> Article:
+    if len(html_content) <= settings.chunk_size:
+        return await _generate_article(html_content, settings)
+
+    chunker = RecursiveChunker(chunk_size=settings.chunk_size)
+    chunks = chunker.chunk(html_content)
+    logger.info("Number of chunks created: {}", len(chunks))
+
+    articles = await asyncio.gather(*[_generate_article(chunk.text, settings) for chunk in chunks])
+
+    article = await generate_article("\n\n".join([article.render_content_text() for article in articles]), settings)
+
     logger.info("Article generated with title: {}", article.title)
     return article
