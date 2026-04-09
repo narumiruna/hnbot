@@ -179,9 +179,9 @@ Common optional settings and defaults:
 - `REDIS_DB = 0`
 - `HTTP_TIMEOUT_SECONDS = 10.0`
 - `HTTP_USER_AGENT = hnbot/0.0.0`
-- `MAX_COMMENT_MARKDOWN_CHARS = 20000`
 - `COMMENTS_FETCH_CONCURRENCY = 1` (must be >= 1)
 - `ARTICLE_PIPELINE_CONCURRENCY = 3` (must be >= 1)
+- `CHUNK_SIZE = 200000` (must be >= 1)
 - `FEED_POINTS = 100` (must be >= 1)
 - `BATCH_SLEEP_SECONDS = 0.5` (must be >= 0.0)
 

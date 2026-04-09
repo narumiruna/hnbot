@@ -99,9 +99,9 @@ All settings are loaded from environment variables (or a `.env` file). See [`.en
 | `FEED_POINTS` | `100` | Minimum HN points threshold for feed entries |
 | `HTTP_TIMEOUT_SECONDS` | `10.0` | HTTP request timeout (seconds) |
 | `HTTP_USER_AGENT` | `hnbot/0.0.0` | HTTP User-Agent header |
-| `MAX_COMMENT_MARKDOWN_CHARS` | `20000` | Maximum characters to keep from comment markdown |
 | `COMMENTS_FETCH_CONCURRENCY` | `1` | Max parallel comment fetches |
 | `ARTICLE_PIPELINE_CONCURRENCY` | `3` | Max parallel article generation tasks |
+| `CHUNK_SIZE` | `200000` | Max characters per chunk for LLM processing |
 | `BATCH_SLEEP_SECONDS` | `0.5` | Delay before processing a batch |
 
 ## Development

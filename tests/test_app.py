@@ -82,11 +82,11 @@ def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
     async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
         return None
 
-    async def fake_generate_article(_content: str) -> FakeArticle:
+    async def fake_generate_article(_content: str, _settings_obj: Settings) -> FakeArticle:
         return FakeArticle()
 
     monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
@@ -139,65 +139,6 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
     assert fake_redis._data[f"hnbot:entry:{entry_two.id}"] == entry_two.comment_url
 
 
-def test_process_entry_truncates_markdown_above_limit(monkeypatch) -> None:
-    cap = 20_000
-    app = App(_settings(max_comment_markdown_chars=cap))
-    app.redis_client = FakeRedis()
-    captured_content: dict[str, str] = {}
-
-    async def fake_get(url: str) -> httpx.Response:
-        request = httpx.Request("GET", url)
-        long_comment = "<p>" + ("a" * (cap + 100)) + "</p>"
-        return httpx.Response(200, request=request, text=long_comment)
-
-    async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
-        return None
-
-    async def fake_generate_article(content: str) -> FakeArticle:
-        captured_content["value"] = content
-        return FakeArticle()
-
-    monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
-    monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
-
-    try:
-        assert app.process_entry(_entry("103")) is True
-    finally:
-        _close_app_client(app)
-
-    assert len(captured_content["value"]) == cap
-    assert captured_content["value"] == "a" * cap
-
-
-def test_process_entry_keeps_markdown_when_within_limit(monkeypatch) -> None:
-    app = App(_settings(max_comment_markdown_chars=20_000))
-    app.redis_client = FakeRedis()
-    captured_content: dict[str, str] = {}
-
-    async def fake_get(url: str) -> httpx.Response:
-        request = httpx.Request("GET", url)
-        return httpx.Response(200, request=request, text="<p>short comment</p>")
-
-    async def fake_send_message(_message: str, _settings_obj: Settings) -> None:
-        return None
-
-    async def fake_generate_article(content: str) -> FakeArticle:
-        captured_content["value"] = content
-        return FakeArticle()
-
-    monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
-    monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
-
-    try:
-        assert app.process_entry(_entry("104")) is True
-    finally:
-        _close_app_client(app)
-
-    assert captured_content["value"] == "short comment"
-
-
 def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -> None:
     app = App(
         _settings(
@@ -223,7 +164,7 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
         item_id = url.split("=")[-1]
         return httpx.Response(200, request=request, text=f"<p>comment {item_id}</p>")
 
-    async def fake_generate_article(content: str) -> FakeArticle:
+    async def fake_generate_article(content: str, settings: Settings) -> FakeArticle:
         entry_id = content.rsplit(" ", 1)[-1]
         delay = {"201": 0.06, "202": 0.02, "203": 0.01}[entry_id]
         await asyncio.sleep(delay)
@@ -237,7 +178,7 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
 
     monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
     monkeypatch.setattr(app.http_client, "get", fake_get)
-    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     app.run()
@@ -270,13 +211,13 @@ def test_article_pipeline_generates_article_and_page_url(monkeypatch) -> None:
     pipeline = ArticlePipeline()
     calls: dict[str, object] = {}
 
-    async def fake_generate_article(content: str) -> FakeArticle:
+    async def fake_generate_article(content: str, settings: Settings) -> FakeArticle:
         calls["content"] = content
         return FakeArticle(url="https://telegra.ph/from-pipeline", summary="summary")
 
-    monkeypatch.setattr("hnbot.app.generate_article_async", fake_generate_article)
+    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
 
-    article, page_url = asyncio.run(pipeline.generate("markdown-content", "entry-1"))
+    article, page_url = asyncio.run(pipeline.generate("markdown-content", Settings(bot_token="x", chat_id="y")))
 
     assert calls["content"] == "markdown-content"
     assert article.summary == "summary"
