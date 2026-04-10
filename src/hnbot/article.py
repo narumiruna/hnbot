@@ -88,12 +88,12 @@ async def _generate_article(html_content: str, settings: Settings) -> Article:
 
 
 async def generate_article(html_content: str, settings: Settings) -> Article:
-    if len(html_content) <= settings.chunk_size:
-        return await _generate_article(html_content, settings)
-
     chunker = RecursiveChunker(chunk_size=settings.chunk_size)
     chunks = chunker.chunk(html_content)
     logger.info("Number of chunks created: {}", len(chunks))
+
+    if len(chunks) <= 1:
+        return await _generate_article(html_content, settings)
 
     articles = await asyncio.gather(*[_generate_article(chunk.text, settings) for chunk in chunks])
 
