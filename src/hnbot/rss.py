@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
@@ -23,8 +24,8 @@ class HNFeed:
     entries: list[HNEntry]
 
 
-def parse_datetime(published_parsed: list[int]) -> datetime:
-    year, month, day, hour, minute, second, microsecond, _, _ = published_parsed
+def parse_datetime(published_parsed: Sequence[int]) -> datetime:
+    year, month, day, hour, minute, second = published_parsed[:6]
     return datetime(
         year,
         month,
@@ -32,7 +33,6 @@ def parse_datetime(published_parsed: list[int]) -> datetime:
         hour,
         minute,
         second,
-        microsecond,
         tzinfo=UTC,
     )
 

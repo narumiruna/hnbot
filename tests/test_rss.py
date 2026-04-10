@@ -1,8 +1,9 @@
+import time
 from datetime import UTC
 from datetime import datetime
 
-from hnbot.rss import HNFeed
 from hnbot.rss import _parse_feed
+from hnbot.rss import parse_datetime
 
 SAMPLE_RSS = b"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -25,11 +26,10 @@ SAMPLE_RSS = b"""<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-def test_parse_feed_returns_hn_feed() -> None:
-    feed = _parse_feed(SAMPLE_RSS)
-    assert isinstance(feed, HNFeed)
-    assert feed.title == "Test Feed"
-    assert len(feed.entries) == 2
+def test_parse_datetime_uses_only_calendar_fields() -> None:
+    published_parsed = time.struct_time((2026, 4, 10, 16, 22, 26, 4, 100, 0))
+
+    assert parse_datetime(published_parsed) == datetime(2026, 4, 10, 16, 22, 26, tzinfo=UTC)
 
 
 def test_parse_feed_entries_are_reversed() -> None:
