@@ -88,7 +88,7 @@ flowchart LR
 - Renders article text and creates Telegraph page.
 
 - `src/hnbot/llm.py`
-- Thin wrappers around OpenAI sync/async Responses API methods.
+- Thin async wrapper around the OpenAI Responses API parse method.
 - Reads model from settings (`openai_model`).
 
 - `src/hnbot/page.py`
@@ -97,7 +97,7 @@ flowchart LR
 
 - `src/hnbot/utils.py`
 - HTML -> Markdown conversion and whitespace normalization.
-- Optional logfire configuration and instrumentation hooks.
+- Optional logfire configuration.
 
 ## Data Contracts
 
@@ -107,7 +107,7 @@ Core models:
   - `link: str`
   - `comment_url: str`
   - `id: str`
-  - `published_at: datetime`
+  - `published_at: datetime` (normalized to UTC)
 - `HNFeed`
   - `title: str`
   - `entries: list[HNEntry]`
@@ -146,6 +146,7 @@ Comment fetch retry policy (`CommentFetcher._fetch_with_retry`):
 
 Per-entry failure boundaries:
 - If comment fetch fails after retries: entry is skipped (returns `False`).
+- If OpenAI rejects input with `BadRequestError` (for example `invalid_prompt`): entry is skipped.
 - If article generation/page creation fails with `RuntimeError` or `ValueError`: entry is skipped.
 - Failed entries are not marked in Redis.
 - Processing of other entries continues (`asyncio.gather` over tasks).
@@ -173,6 +174,7 @@ Required:
 Common optional settings and defaults:
 - `OPENAI_MODEL = gpt-5-mini`
 - `OPENAI_BASE_URL` (OpenAI client-compatible endpoint override)
+- `ARTICLE_LANG = Traditional Chinese (台灣正體中文)`
 - `LOGFIRE_TOKEN` (enables instrumentation)
 - `REDIS_HOST = localhost`
 - `REDIS_PORT = 6379`
@@ -184,9 +186,6 @@ Common optional settings and defaults:
 - `CHUNK_SIZE = 200000` (must be >= 1)
 - `FEED_POINTS = 100` (must be >= 1)
 - `BATCH_SLEEP_SECONDS = 0.5` (must be >= 0.0)
-
-Note:
-- `BATCH_SLEEP_SECONDS` is supported by `Settings` but is not currently listed in `.env.example`.
 
 ## Observability
 
@@ -214,15 +213,16 @@ Current tests validate:
 - Settings requirements/defaults and validation constraints.
 - RSS parsing behavior and entry reversal.
 - Retry behavior for transient fetch errors.
+- Invalid-prompt article generation failures are skipped without marking Redis state.
 - Markdown truncation behavior by configured max length.
 - Parallel pipeline behavior (including non-deterministic send order).
 - Message HTML escaping for title/summary/links.
-- OpenAI model propagation from settings in LLM wrappers.
+- OpenAI model propagation from settings in the LLM wrapper.
 
 Known test gaps:
 - No full integration test against real external services.
 - Limited direct tests for `page.py` sanitizer edge cases.
-- Feed fetch (`get_hn_feed_async`) retry is not explicitly covered.
+- Feed fetch (`get_hn_feed`) retry is not explicitly covered.
 
 ## Known Limitations
 

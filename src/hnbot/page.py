@@ -124,7 +124,8 @@ def _sanitize_telegraph_html(html_content: str) -> str:
 def create_page(title: str, html_content: str) -> str:
     """Create a Telegraph page synchronously.
 
-    Note: This blocks the event loop. Use async_create_page() in async contexts.
+    Note: This blocks the caller thread. In async code, offload it with
+    `asyncio.to_thread()`.
 
     Args:
         title: Page title
