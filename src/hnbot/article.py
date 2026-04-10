@@ -99,10 +99,7 @@ async def generate_article(html_content: str, settings: Settings) -> Article:
         article = await _generate_article(chunk.text, settings)
         articles.append(article)
 
-    article = await generate_article(
+    return await generate_article(
         "\n\n".join([article.render_content_text() for article in articles]),
         settings,
     )
-
-    logger.info("Article generated with title: {}", article.title)
-    return article
