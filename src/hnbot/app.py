@@ -181,9 +181,6 @@ class App:
     def run(self) -> None:
         asyncio.run(self._run_async())
 
-    def process_entry(self, entry: HNEntry) -> bool:
-        return asyncio.run(self._process_feed_entry(entry))
-
     async def _run_async(self) -> None:
         try:
             await self._run_feed_batch()

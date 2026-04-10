@@ -4,6 +4,7 @@ from datetime import UTC
 from datetime import datetime
 
 import httpx
+import pytest
 
 from hnbot.app import App
 from hnbot.app import ArticlePipeline
@@ -63,11 +64,12 @@ def _http_status_error(status: int, url: str, retry_after: str | None = None) ->
     return httpx.HTTPStatusError("status error", request=request, response=response)
 
 
-def _close_app_client(app: App) -> None:
-    asyncio.run(app.http_client.aclose())
+async def _close_app_client(app: App) -> None:
+    await app.http_client.aclose()
 
 
-def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
+@pytest.mark.anyio
+async def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
     app = App(_settings())
     app.redis_client = FakeRedis()
     call_count = {"count": 0}
@@ -90,13 +92,14 @@ def test_process_entry_retries_on_429_then_success(monkeypatch) -> None:
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
     try:
-        assert app.process_entry(_entry("1")) is True
+        assert await app._process_feed_entry(_entry("1")) is True
         assert call_count["count"] == 2
     finally:
-        _close_app_client(app)
+        await _close_app_client(app)
 
 
-def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
+@pytest.mark.anyio
+async def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
     app = App(_settings())
     app.redis_client = FakeRedis()
     call_count = {"count": 0}
@@ -108,10 +111,10 @@ def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
     monkeypatch.setattr(app.http_client, "get", fake_get)
 
     try:
-        assert app.process_entry(_entry("2")) is False
+        assert await app._process_feed_entry(_entry("2")) is False
         assert call_count["count"] == 3
     finally:
-        _close_app_client(app)
+        await _close_app_client(app)
 
 
 def test_run_continues_and_marks_only_success(monkeypatch) -> None:
