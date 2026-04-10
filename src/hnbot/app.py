@@ -23,7 +23,7 @@ from tenacity import wait_exponential_jitter
 from hnbot.article import Article
 from hnbot.article import generate_article
 from hnbot.rss import HNEntry
-from hnbot.rss import get_hn_feed_async
+from hnbot.rss import get_hn_feed
 from hnbot.settings import Settings
 from hnbot.utils import html_to_markdown
 
@@ -193,7 +193,7 @@ class App:
             await self.redis_client.aclose()
 
     async def _run_feed_batch(self) -> None:
-        feed = await get_hn_feed_async(self.http_client, points=self.settings.feed_points)
+        feed = await get_hn_feed(self.http_client, points=self.settings.feed_points)
         await self._process_feed_entries(feed.entries, feed.title)
 
     async def _process_feed_entries(self, entries: list[HNEntry], feed_title: str) -> None:

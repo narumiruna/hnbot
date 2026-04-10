@@ -162,7 +162,7 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
     async def fake_process_entry_pipeline(entry: HNEntry, **_kwargs: object) -> bool:
         return process_results[entry.id]
 
-    monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
+    monkeypatch.setattr("hnbot.app.get_hn_feed", fake_get_hn_feed)
     monkeypatch.setattr(app, "_process_entry_pipeline", fake_process_entry_pipeline)
 
     app.run()
@@ -208,7 +208,7 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
         entry_num = first_line.split("-")[-1].removesuffix("</b>")
         send_order.append(entry_num)
 
-    monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
+    monkeypatch.setattr("hnbot.app.get_hn_feed", fake_get_hn_feed)
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
