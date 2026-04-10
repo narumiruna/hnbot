@@ -1,4 +1,3 @@
-import asyncio
 import html
 
 from chonkie.chunker import RecursiveChunker
@@ -95,9 +94,15 @@ async def generate_article(html_content: str, settings: Settings) -> Article:
     if len(chunks) <= 1:
         return await _generate_article(html_content, settings)
 
-    articles = await asyncio.gather(*[_generate_article(chunk.text, settings) for chunk in chunks])
+    articles = []
+    for chunk in chunks:
+        article = await _generate_article(chunk.text, settings)
+        articles.append(article)
 
-    article = await generate_article("\n\n".join([article.render_content_text() for article in articles]), settings)
+    article = await generate_article(
+        "\n\n".join([article.render_content_text() for article in articles]),
+        settings,
+    )
 
     logger.info("Article generated with title: {}", article.title)
     return article
