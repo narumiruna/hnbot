@@ -5,6 +5,7 @@ from datetime import datetime
 
 import httpx
 import pytest
+from openai import BadRequestError
 
 from hnbot.app import App
 from hnbot.app import ArticlePipeline
@@ -113,6 +114,34 @@ async def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
     try:
         assert await app._process_feed_entry(_entry("2")) is False
         assert call_count["count"] == 3
+    finally:
+        await _close_app_client(app)
+
+
+@pytest.mark.anyio
+async def test_process_entry_skips_invalid_prompt_error(monkeypatch) -> None:
+    app = App(_settings())
+    app.redis_client = FakeRedis()
+
+    async def fake_get(url: str) -> httpx.Response:
+        request = httpx.Request("GET", url)
+        return httpx.Response(200, request=request, text="<p>biology content</p>")
+
+    async def fake_generate_article(_content: str, _settings_obj: Settings) -> FakeArticle:
+        request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+        response = httpx.Response(400, request=request)
+        raise BadRequestError(
+            "Invalid prompt: limited access to this content for safety reasons.",
+            response=response,
+            body={"error": {"code": "invalid_prompt"}},
+        )
+
+    monkeypatch.setattr(app.http_client, "get", fake_get)
+    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
+
+    try:
+        assert await app._process_feed_entry(_entry("3")) is False
+        assert "hnbot:entry:3" not in app.redis_client._data
     finally:
         await _close_app_client(app)
 

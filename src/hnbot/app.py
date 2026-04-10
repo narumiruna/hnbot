@@ -1,6 +1,7 @@
 import asyncio
 import html
 from collections.abc import Awaitable
+from collections.abc import Callable
 from datetime import UTC
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -12,6 +13,7 @@ from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from loguru import logger
+from openai import BadRequestError
 from tenacity import RetryCallState
 from tenacity import retry
 from tenacity import retry_if_exception
@@ -155,11 +157,13 @@ class Notifier:
         await send_message(message, self.settings)
 
 
-async def _with_optional_semaphore[T](coro: Awaitable[T], semaphore: asyncio.Semaphore | None) -> T:
+async def _with_optional_semaphore[T](
+    coro_factory: Callable[[], Awaitable[T]], semaphore: asyncio.Semaphore | None
+) -> T:
     if semaphore is None:
-        return await coro
+        return await coro_factory()
     async with semaphore:
-        return await coro
+        return await coro_factory()
 
 
 class App:
@@ -246,15 +250,18 @@ class App:
         logger.info("Processing entry with id: {}", entry.id)
 
         try:
-            content = await _with_optional_semaphore(self.fetcher.fetch(entry), fetch_semaphore)
+            content = await _with_optional_semaphore(lambda: self.fetcher.fetch(entry), fetch_semaphore)
         except httpx.HTTPError:
             logger.exception("Failed to fetch comments for entry {}", entry.id)
             return False
 
         try:
             article, page_url = await _with_optional_semaphore(
-                self.pipeline.generate(content, self.settings), pipeline_semaphore
+                lambda: self.pipeline.generate(content, self.settings), pipeline_semaphore
             )
+        except BadRequestError as exc:
+            logger.warning("Skipping entry {} due to non-processable LLM input: {}", entry.id, exc)
+            return False
         except (RuntimeError, ValueError):
             logger.exception("Failed to generate/send article for entry {}", entry.id)
             return False
