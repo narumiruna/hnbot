@@ -5,6 +5,7 @@ from datetime import datetime
 
 import httpx
 import pytest
+from openai import BadRequestError
 
 from hnbot.app import App
 from hnbot.app import ArticlePipeline
@@ -117,6 +118,34 @@ async def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
         await _close_app_client(app)
 
 
+@pytest.mark.anyio
+async def test_process_entry_skips_invalid_prompt_error(monkeypatch) -> None:
+    app = App(_settings())
+    app.redis_client = FakeRedis()
+
+    async def fake_get(url: str) -> httpx.Response:
+        request = httpx.Request("GET", url)
+        return httpx.Response(200, request=request, text="<p>biology content</p>")
+
+    async def fake_generate_article(_content: str, _settings_obj: Settings) -> FakeArticle:
+        request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+        response = httpx.Response(400, request=request)
+        raise BadRequestError(
+            "Invalid prompt: limited access to this content for safety reasons.",
+            response=response,
+            body={"error": {"code": "invalid_prompt"}},
+        )
+
+    monkeypatch.setattr(app.http_client, "get", fake_get)
+    monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
+
+    try:
+        assert await app._process_feed_entry(_entry("3")) is False
+        assert "hnbot:entry:3" not in app.redis_client._data
+    finally:
+        await _close_app_client(app)
+
+
 def test_run_continues_and_marks_only_success(monkeypatch) -> None:
     app = App(_settings())
     fake_redis = FakeRedis()
@@ -133,7 +162,7 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
     async def fake_process_entry_pipeline(entry: HNEntry, **_kwargs: object) -> bool:
         return process_results[entry.id]
 
-    monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
+    monkeypatch.setattr("hnbot.app.get_hn_feed", fake_get_hn_feed)
     monkeypatch.setattr(app, "_process_entry_pipeline", fake_process_entry_pipeline)
 
     app.run()
@@ -179,7 +208,7 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
         entry_num = first_line.split("-")[-1].removesuffix("</b>")
         send_order.append(entry_num)
 
-    monkeypatch.setattr("hnbot.app.get_hn_feed_async", fake_get_hn_feed)
+    monkeypatch.setattr("hnbot.app.get_hn_feed", fake_get_hn_feed)
     monkeypatch.setattr(app.http_client, "get", fake_get)
     monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
