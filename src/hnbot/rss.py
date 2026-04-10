@@ -65,15 +65,6 @@ def _parse_feed(content: bytes) -> HNFeed:
     )
 
 
-def get_hn_feed(points: int = 100) -> HNFeed:
-    url = f"https://hnrss.org/newest?points={points}"
-
-    resp = httpx.get(url)
-    resp.raise_for_status()
-
-    return _parse_feed(resp.content)
-
-
 async def get_hn_feed_async(client: httpx.AsyncClient, points: int = 100) -> HNFeed:
     url = f"https://hnrss.org/newest?points={points}"
 

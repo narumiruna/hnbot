@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import charset_normalizer
 import logfire
 from loguru import logger
@@ -26,15 +24,6 @@ def html_to_markdown(content: str | bytes) -> str:
 
     md = markdownify(content, strip=["a", "img"])
     return normalize_whitespace(md)
-
-
-def read_html_content(f: str | Path) -> str:
-    content = str(charset_normalizer.from_path(f).best())
-    return html_to_markdown(content)
-
-
-def logfire_is_enabled(settings: Settings) -> bool:
-    return bool(settings.logfire_token)
 
 
 def configure_logfire(settings: Settings) -> None:
