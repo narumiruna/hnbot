@@ -9,6 +9,7 @@ A Telegram bot that monitors [Hacker News](https://news.ycombinator.com/) for tr
 - **Telegraph publishing** — creates readable long-form pages on [Telegraph](https://telegra.ph/)
 - **Telegram notifications** — sends formatted messages with links to the original article, HN discussion, and the generated summary
 - **Redis deduplication** — tracks processed entries to avoid sending duplicate notifications
+- **Batch execution** — each CLI run processes one feed batch and exits cleanly for cron or CI scheduling
 - **Concurrent processing** — handles multiple articles in parallel with configurable concurrency limits
 - **Retry with backoff** — automatically retries transient HTTP failures
 
@@ -61,6 +62,8 @@ cp .env.example .env
 uv run hnbot
 ```
 
+Each invocation processes one feed batch and exits. Use cron, systemd timers, or GitHub Actions if you want recurring runs.
+
 ### Install from PyPI
 
 ```sh
@@ -92,6 +95,7 @@ All settings are loaded from environment variables (or a `.env` file). See [`.en
 |---|---|---|
 | `OPENAI_BASE_URL` | *(OpenAI default)* | Custom OpenAI-compatible API endpoint |
 | `OPENAI_MODEL` | `gpt-5-mini` | LLM model to use for summarisation |
+| `ARTICLE_LANG` | `Traditional Chinese (台灣正體中文)` | Output language for generated articles |
 | `LOGFIRE_TOKEN` | — | [Logfire](https://logfire.pydantic.dev/) token for observability |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
