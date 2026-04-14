@@ -141,7 +141,10 @@ class Notifier:
 
     def build_message(self, entry: HNEntry, article: SummaryCarrier, page_url: str) -> str:
         escaped_title = html.escape(entry.title)
-        message_parts = [f"<b>{escaped_title}</b>"]
+        title_line = f"<b>{escaped_title}</b>"
+        if entry.points is not None:
+            title_line = f"{title_line}  ⭐ {entry.points}"
+        message_parts = [title_line]
         if article.summary:
             message_parts.append(html.escape(article.summary))
         message_parts.append(

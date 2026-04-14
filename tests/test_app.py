@@ -234,11 +234,29 @@ def test_notifier_build_message_escapes_text_and_links() -> None:
 
     message = notifier.build_message(entry, article, article.url)
 
-    assert "<b>title-&lt;1&gt;</b>" in message
+    assert message.startswith("<b>title-&lt;1&gt;</b>  ⭐ 123\n\n")
     assert "摘要 &lt;b&gt;text&lt;/b&gt;" in message
     assert 'href="https://example.com/?a=&lt;tag&gt;"' in message
     assert 'href="https://news.ycombinator.com/item?id=1&amp;x=&lt;z&gt;"' in message
     assert 'href="https://telegra.ph/fake?x=&lt;x&gt;"' in message
+
+
+def test_notifier_build_message_omits_points_when_missing() -> None:
+    notifier = Notifier()
+    entry = HNEntry(
+        title="title-1",
+        link="https://example.com/1",
+        comment_url="https://news.ycombinator.com/item?id=1",
+        id="1",
+        published_at=datetime.now(UTC),
+        points=None,
+    )
+    article = FakeArticle()
+
+    message = notifier.build_message(entry, article, article.url)
+
+    assert message.startswith("<b>title-1</b>\n\n")
+    assert "⭐" not in message
 
 
 def test_article_pipeline_generates_article_and_page_url(monkeypatch) -> None:
