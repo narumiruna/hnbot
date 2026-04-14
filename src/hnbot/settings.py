@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     article_pipeline_concurrency: int = Field(default=3, ge=1)
     chunk_size: int = Field(default=200_000, ge=1)
 
-    feed_points: int = Field(default=100, ge=1)
+    feed_points: int = Field(default=200, ge=1)
     batch_sleep_seconds: float = Field(default=0.5, ge=0.0)
 
 
