@@ -71,9 +71,9 @@ class Article(BaseModel):
 async def _generate_article(html_content: str, settings: Settings) -> Article:
     if not html_content.strip():
         return Article(
-            title="無內容",
-            summary="沒有可處理的內容。",
-            sections=[Section(title="內容狀態", emoji="📌", content="[No content provided]")],
+            title="No Content Available",
+            summary="",
+            sections=[],
         )
 
     article = await async_parse(
