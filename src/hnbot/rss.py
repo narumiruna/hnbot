@@ -1,3 +1,4 @@
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC
@@ -16,6 +17,7 @@ class HNEntry:
     comment_url: str
     id: str
     published_at: datetime
+    points: int | None
 
 
 @dataclass
@@ -44,6 +46,13 @@ def parse_id(url: str) -> str:
     return parsed_qs["id"][0]
 
 
+def parse_points(description: str) -> int | None:
+    match = re.search(r"Points:\s*(\d+)", description)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
 def _parse_feed(content: bytes) -> HNFeed:
     parsed_dict = feedparser.parse(content)
 
@@ -54,6 +63,7 @@ def _parse_feed(content: bytes) -> HNFeed:
             comment_url=entry["comments"],
             id=parse_id(entry["comments"]),
             published_at=parse_datetime(entry["published_parsed"]),
+            points=parse_points(entry.get("summary", "")),
         )
         for entry in parsed_dict["entries"]
     ]
@@ -65,7 +75,7 @@ def _parse_feed(content: bytes) -> HNFeed:
     )
 
 
-async def get_hn_feed(client: httpx.AsyncClient, points: int = 100) -> HNFeed:
+async def get_hn_feed(client: httpx.AsyncClient, points: int) -> HNFeed:
     url = f"https://hnrss.org/newest?points={points}"
 
     resp = await client.get(url)

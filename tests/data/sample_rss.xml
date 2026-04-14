@@ -1,0 +1,404 @@
+This XML file does not appear to have any style information associated with it. The document tree is
+shown below.
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom"
+  version="2.0">
+  <channel>
+    <title>Hacker News: Best Comments</title>
+    <link>https://news.ycombinator.com/bestcomments</link>
+    <description>Hacker News RSS</description>
+    <docs>https://hnrss.org/</docs>
+    <generator>hnrss v2.1.1</generator>
+    <lastBuildDate>Tue, 14 Apr 2026 08:00:51 +0000</lastBuildDate>
+    <atom:link href="https://hnrss.org/bestcomments" rel="self" type="application/rss+xml" />
+    <item>
+      <title>
+<![CDATA[ New comment by chromacity in "Someone bought 30 WordPress plugins and planted a backdoor in all of them" ]]>
+</title>
+      <description>
+<![CDATA[ <p>This is a perfect illustration of what cracks me up about the hyperbolic reactions to Mythos. Yes, increased automation of cutting-edge vulnerability discovery will shake things up a bit. No, it's nowhere near the top of what should be keeping you awake at night if you're working in infosec.<p>We've built our existing tech stacks and corporate governance structures for a different era. If you want to credit one specific development for making things dramatically worse, it's cryptocurrencies, not AI. They've turned the cottage industry of malicious hacking into a multi-billion-dollar enterprise that's attractive even to rogue nations such as North Korea. And with this much at stake, they can afford to simply buy your software dependencies, or to offer one of your employees some retirement money in exchange for making a "mistake".<p>We know how to write software with very few bugs (although we often choose not to). We have no good plan for keeping big enterprises secure in this reality. Autonomous LLM agents will be used by ransomware gangs and similar operations, but they don't need FreeBSD exploit-writing capabilities for that.</p> ]]>
+</description>
+      <pubDate>Mon, 13 Apr 2026 18:44:24 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47756259</link>
+      <dc:creator>chromacity</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47756259</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47756259</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by bradley13 in "Someone bought 30 WordPress plugins and planted a backdoor in all of them" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Whenever I look at a web project, it starts with "npm install" and literally dozens of libraries get downloaded.<p>The project authors probably don't even know what libraries their project requires, because many of them are transitive dependencies. There is zero chance that they have checked those libraries for supply chain attacks.</p> ]]>
+</description>
+      <pubDate>Mon, 13 Apr 2026 18:23:47 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47755991</link>
+      <dc:creator>bradley13</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47755991</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47755991</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by bsimpson in "US appeals court declares 158-year-old home distilling ban unconstitutional" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Do this one next:<p><a href="https://en.wikipedia.org/wiki/Gonzales_v._Raich" rel="nofollow">https://en.wikipedia.org/wiki/Gonzales_v._Raich</a><p>The Supreme Court somehow held that the feds can regulate what you do in your own home (in this case, growing marijuana for personal use) because it could have a butterfly effect on the interstate price. (Constitutionally, the feds can only regulate _interstate_ commerce.)</p> ]]>
+</description>
+      <pubDate>Mon, 13 Apr 2026 15:18:15 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47753269</link>
+      <dc:creator>bsimpson</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47753269</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47753269</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by flibbityflob in "Mark Zuckerberg is reportedly building an AI clone to replace him in meetings" ]]>
+</title>
+      <description>
+<![CDATA[ <p>How will a machine ever replace his famous warmth or empathy?</p> ]]>
+</description>
+      <pubDate>Mon, 13 Apr 2026 14:40:23 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47752692</link>
+      <dc:creator>flibbityflob</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47752692</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47752692</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by ieie3366 in "Android now stops you sharing your location in photos" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Most likely: actually using the geolocation is an extremely niche usecase for images uploaded from mobile browsers.<p>I’d wager 99.9% of the users didn’t realize that they are effectively sending their live GPS coords to a random website when taking a photo.<p>But yes, a prop to the input tag ’includeLocation’ which would then give the user some popup confirmation prompt would have been nice</p> ]]>
+</description>
+      <pubDate>Mon, 13 Apr 2026 12:35:06 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47751082</link>
+      <dc:creator>ieie3366</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47751082</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47751082</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by leokennis in "The economics of software teams: Why most engineering orgs are flying blind" ]]>
+</title>
+      <description>
+<![CDATA[ <p>> The obvious objection is that code produced at that speed becomes unmanageable, a liability in itself. That is a reasonable concern, but it largely applies when agents produce code that humans then maintain. Agentic platforms are being iterated upon quickly, and for established patterns and non-business-critical code, which is the majority of what most engineering organizations actually maintain, detailed human familiarity with the codebase matters less than it once did. A messy codebase is still cheaper to send ten agents through than to staff a team around. And even if the agents need ten days to reason through an unfamiliar system, that is still faster and cheaper than most development teams operating today. The liability argument holds in a human-to-human or agent-to-human world. In an agent-to-agent world, it largely dissolves.<p>Then I'd wager it's the same for the courses and workshop this guy is selling...an LLM can probably give me at least 75% of the financial insights for not even .1% of what this "agile coach" is asking for his workshops and courses.<p>Maybe the "agile coach LLM" can explain to the "coding LLM's" why they're too expensive, and then the "coding LLM's" can tell the "agile coach LLM" to take the next standby shift then, if he knows so much about code?<p>And then we actual humans can have a day off and relax at the pool.</p> ]]>
+</description>
+      <pubDate>Mon, 13 Apr 2026 07:01:35 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47748634</link>
+      <dc:creator>leokennis</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47748634</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47748634</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by grtteee in "Apple's accidental moat: How the "AI Loser" may end up winning" ]]>
+</title>
+      <description>
+<![CDATA[ <p>This is the classic apple approach - wait to understand what the thing is capable of doing (aka let others make sunk investments), envision a solution that is way better than the competition and then architect a path to building a leapfrog product that builds a large lead.</p> ]]>
+</description>
+      <pubDate>Mon, 13 Apr 2026 03:30:54 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47747247</link>
+      <dc:creator>grtteee</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47747247</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47747247</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by sriram_malhar in "Most people can't juggle one ball" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Many of you might know of Noisebridge, a beloved hackerspace in San Francisco. They had (have?) a juggling workshop every saturday called "Juggling with Judy", taught by Judy Pinelli, founder of the famed Pickle Family Circus (and a huge influence on Cirque Du Soleil).<p>I had no idea how famous or influential she was. She first taught us how to make our own juggling balls: snip the ends of a balloon, fill with enough rice to feel comfortable in the hand, then wrap that with another balloon to seal the rice in, then snip the ends of the second balloon.<p>Then she went through the usual sequence: throw a ball, er, balloon, from one hand to the next, then practice with two and so on. By the end of that 2 hour session, we had got the essentials.<p>The remarkable thing about this workshop was that Judy was at an advanced stage of multiple sclerosis at that point. She was pretty much completely immobile from the neck down, and couldn't even see our hands properly from her wheelchair. She could only see the arc of the ball, but that was sufficient information for her to tell us how we could improve. "Pull your elbow in". "Focus on the left hand, the right will follow".<p>After the 2 hour workshop, she'd go to Golden Gate park to teach juggling. All for free. I feel extraordinarily privileged. She's been my polestar in life.</p> ]]>
+</description>
+      <pubDate>Mon, 13 Apr 2026 02:38:04 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47746936</link>
+      <dc:creator>sriram_malhar</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47746936</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47746936</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by mattmaroon in "DIY Soft Drinks" ]]>
+</title>
+      <description>
+<![CDATA[ <p>One pro-tip as I now somehow have a commercial bottling license these days: get pre-hydrated gum Arabic. Much easier to work with. Almost everybody who messes this up will make the mistake at the hydrating the gum Arabic stage. Blend it with any dry ingredients like sugar before using.<p>If you can’t source it, I’m not going to tell you that you SHOULD pretend to be a bottling company and ask a gum provider to send you some free samples, but you could and the amount they send you will last the rest of your life. TIC gums is pretty awesome and if you’re into frozen desserts has some incredible gum mixtures for ice creams, sorbets, etc.<p>Also, consider just using water soluble flavor concentrates and skipping emulsification all together. That’s what most pros do and it’s why Sprite isn’t cloudy like it would be if you used oils. My favorite suppliers that sell in consumer and pro-sumer qtys are Apex Flavors and Nature’s Flavors.<p>This probably won’t work for Cola as I think some of those ingredients have all of their flavor molecules in the oils, but as a general rule, if you can buy it at the store and it is clear, it is made using water soluble. If it is brown it probably isn’t, hence the caramel color additive.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 20:44:28 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47744268</link>
+      <dc:creator>mattmaroon</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47744268</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47744268</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by bengotow in "Google removes "Doki Doki Literature Club" from Google Play" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Just want to drive by and mention - a friend told me to play DDLC and I was highly skeptical given the anime pin-up girl art style. I eventually gave in and gave it a shot.<p>It's an amazing "playable story" unlike anything I have ever played. Super creative and well worth the couple hours it takes to play. I think it could use a few trigger warnings and it should be rated PG-13 / R, but there's stuff on Netflix 10x more disturbing so I don't quite grok the Google push back on this one.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 20:37:28 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47744198</link>
+      <dc:creator>bengotow</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47744198</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47744198</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by anonymous908213 in "Google removes "Doki Doki Literature Club" from Google Play" ]]>
+</title>
+      <description>
+<![CDATA[ <p>1bil+ people have surrendered their right to artistic expression to Google, and another 1bil+ to Apple, and another 1bil+ to Microsoft. Many more billions have surrendered it to Visa and Mastercard. The world will only continue to get worse for the foreseeable future as five corporations assert global control over what is allowed to be published. It is mournful knowing that humanity's peak is behind us.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 20:30:18 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47744135</link>
+      <dc:creator>anonymous908213</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47744135</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47744135</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by a-ve in "Show HN: boringBar – a taskbar-style dock replacement for macOS" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Since this is the top comment as of now - hijacking this to introduce a change to pricing:<p>------<p>OP here - based on the feedback, I’ve switched boringBar to a perpetual license for personal use: <a href="https://boringbar.app" rel="nofollow">https://boringbar.app</a><p>It’s now $40 for 2 devices and includes 2 years of updates. After that, you can keep using the version you have, or choose to pay for updates again later.<p>For businesses, I’m keeping the existing annual pricing.<p>A lot of the comments on pricing were fair, and I appreciate people being direct about it. I still care a lot about long-term maintenance for an app like this, but I think this is a better balance.<p><a href="https://news.ycombinator.com/item?id=47743992">https://news.ycombinator.com/item?id=47743992</a></p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 20:22:35 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47744059</link>
+      <dc:creator>a-ve</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47744059</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47744059</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by sonofhans in "Show HN: boringBar – a taskbar-style dock replacement for macOS" ]]>
+</title>
+      <description>
+<![CDATA[ <p>I am the target audience for this, from a UX and tech perspective. It addresses a problem I have and for which I periodically audition solutions.<p>A subscription for a menu bar, though, kills it for me. I have apps on Macs that are over 20 years old. Some of those companies don’t exist anymore. I’m not going to risk paying $100 for a decade of your app and hope that your company, or your goodwill, stays around that long.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 18:06:22 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47742559</link>
+      <dc:creator>sonofhans</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47742559</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47742559</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by vunderba in "Most people can't juggle one ball" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Longtime juggler here.<p>Outside of more complicated tricks like the claw and other specialized patterns, the most common juggling patterns (such as the cascade [1]) don’t rely as much on pure handeye coordination as they do on maintaining a consistent, even toss. The key is throwing each ball so it rises and falls in a predictable arc, so it lands approximately in the same spot where your other hand is waiting to catch it.<p>When I teach complete beginners, I actually start with a set of special handkerchiefs. They fall more slowly than balls, which gives learners more time to react and makes it much easier to see and follow the path of each object through the air.<p>[1] - <a href="https://en.wikipedia.org/wiki/Cascade_(juggling)" rel="nofollow">https://en.wikipedia.org/wiki/Cascade_(juggling)</a></p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 18:03:08 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47742533</link>
+      <dc:creator>vunderba</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47742533</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47742533</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by uhoh-itsmaciek in "Bring Back Idiomatic Design (2023)" ]]>
+</title>
+      <description>
+<![CDATA[ <p>In text boxes in some applications, enter submits the entered text, and ctrl-enter forces a newline (not at my computer, but I think Slack does this). In others, it's the other way around (pretty sure GitHub does this for comments).<p>I don't know how we got here and I don't know how to fix it, but "bring back idiomatic design" doesn't help when we don't have enough idioms. I'm not even sure if those two behaviors are wrong to be inconsistent: you're probably more likely to want fancier formatting in a PR review comment than a chat message. But as a user, it's frustrating to have to keep track of which is which.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 16:19:39 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47741481</link>
+      <dc:creator>uhoh-itsmaciek</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47741481</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47741481</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by reenorap in "Pro Max 5x quota exhausted in 1.5 hours despite moderate usage" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Boris, you're seeing a ton of anecdotes here and Claude has done something that has affected a bunch of their most fervent users.<p>Jeff Bezos famously said that if the anecdotes are contradicting the metrics, then the metrics are measuring the wrong things. I suggest you take the anecdotes here seriously and figure out where/why the metrics are wrong.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 15:36:12 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47740970</link>
+      <dc:creator>reenorap</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47740970</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47740970</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by bcherny in "Pro Max 5x quota exhausted in 1.5 hours despite moderate usage" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Hey all, Boris from the Claude Code team here.<p>We've been investigating these reports, and a few of the top issues we've found are:<p>1. Prompt cache misses when using 1M token context window are expensive. Since Claude Code uses a 1 hour prompt cache window for the main agent, if you leave your computer for over an hour then continue a stale session, it's often a full cache miss. To improve this, we have shipped a few UX improvements (eg. to nudge you to /clear before continuing a long stale session), and are investigating defaulting to 400k context instead, with an option to configure your context window to up to 1M if preferred. To experiment with this now, try: CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000 claude.<p>2. People pulling in a large number of skills, or running many agents or background automations, which sometimes happens when using a large number of plugins. This was the case for a surprisingly large number of users, and we are actively working on (a) improving the UX to make these cases more visible to users and (b) more intelligently truncating, pruning, and scheduling non-main tasks to avoid surprise token usage.<p>In the process, we ruled out a large number of hypotheses: adaptive thinking, other kinds of harness regressions, model and inference regressions.<p>We are continuing to investigate and prioritize this. The most actionable thing for people running into this is to run /feedback, and optionally post the feedback ids either here or in the Github issue. That makes it possible for us to debug specific reports.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 15:02:18 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47740541</link>
+      <dc:creator>bcherny</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47740541</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47740541</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by phtrivier in "Seven countries now generate nearly all their electricity from renewables (2024)" ]]>
+</title>
+      <description>
+<![CDATA[ <p>> Albania, Bhutan, Nepal, Paraguay, Iceland, Ethiopia and the Democratic Republic of Congo produced more than 99.7 per cent of the electricity they consumed using geothermal, hydro, solar or wind power.<p>Let's head to electricitymaps.com !<p>Albania (<a href="https://app.electricitymaps.com/map/zone/AL/live/fifteen_minutes" rel="nofollow">https://app.electricitymaps.com/map/zone/AL/live/fifteen_min...</a>)<p>- On 2026-04-12 16:45 GMT+2, 22,67% of electricity consumed by Albania is imported from Greece, which generates 22% of its electricity from gas. Interestingly, Albania exports about as much to Montenegro as it imports from Greece.<p>Bhutan:<p>- 100% hydro, makes perfect sense<p>Nepal:<p>- 98% hydro, a bit of solar for good measure<p>Iceland:<p>- 70% hydro, 30% geo<p>Paraguay:<p>- 99,9% hydro<p>Ethiopia:<p>- 96,4% hydro<p>DRC<p>- 99.6% hydro<p>So, the lessons for all other countries in the world is pretty clear: grow yourselves some mountains, dig yourselves a big river, and dam, baby, dam !!<p>(I'm kidding, but I'm sure someone has a pie-in-the-sky geoengineering startup about to disrupt topography using either AI, blockchain, or both.)</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 14:55:35 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47740465</link>
+      <dc:creator>phtrivier</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47740465</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47740465</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by JojoFatsani in "Bring Back Idiomatic Design (2023)" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Most software is not designed by intelligent and thoughtful people anymore. It is designed by hastily promoted middle manager PM/Product type people who, as has been mentioned elsewhere, simply were not around when thoughtful human interface design was borderline mandatory for efficiency’s sake.<p>There is incompetence and there is also malevolence in the encouragement of dark patterns by the revenue side of the business.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 14:54:42 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47740455</link>
+      <dc:creator>JojoFatsani</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47740455</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47740455</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by itopaloglu83 in "We have a 99% email reputation, but Gmail disagrees" ]]>
+</title>
+      <description>
+<![CDATA[ <p>I don’t know if this is true with Font Awesome, but more and more companies are spamming my inbox despite disabling any promotional emails in their settings.<p>So, I mark any unwanted email as spam in Gmail immediately, and even leave bad reviews.<p>Having my email address is not the same as having my consent. Stop trying to roofie us with malicious EULAs.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 14:37:26 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47740237</link>
+      <dc:creator>itopaloglu83</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47740237</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47740237</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by cs02rm0 in "We have a 99% email reputation, but Gmail disagrees" ]]>
+</title>
+      <description>
+<![CDATA[ <p>> At our CORE, our instinct is to only email folks when we actually have something fun to share. A big release, something we’re excited about, news worth your time. That’d probably be every couple of months, if that. Respectful. Low noise.<p>Low noise for some fonts is zero emails. In the nicest way possible, users aren't excited about your big release, they're just not.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 14:35:46 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47740220</link>
+      <dc:creator>cs02rm0</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47740220</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47740220</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by danirod in "Tell HN: Docker pull fails in Spain due to football Cloudflare block" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Heh, lucky you, at least you get a message. My ISP just drops traffic to the affected IPs. No ping, no traceroute, just a spinner in the browser until it says "page not found".<p>Every response and comment from LaLiga, the football organization responsible for this, has been so far that this is a minor issue that only affects a few bunch of nerds who talk about "docker images" or "github repositories" or "whatever that means".<p>Meanwhile, there are testimonies of smart home devices like anti-theft alarms or automatic doors, that stop working whenever there is a football match, because their backends rely on Cloudflare.<p>Last week, a woman asked for help on social media, as the GPS tracking app she uses to see where her father with dementia is, went offline during a match. It was getting late and he still wasn't back home, and she couldn't locate the tag he was wearing to find him: <a href="https://www.infobae.com/america/agencias/2026/04/05/laliga-desmiente-que-sus-sistemas-antipirateria-hayan-hecho-fallar-un-dispositivo-de-localizacion-personal/" rel="nofollow">https://www.infobae.com/america/agencias/2026/04/05/laliga-d...</a><p>It's hard to say this, because no one should experience an event like this, but as stressful as these are, it's the only way to make the mainstream people care about this censorship. "I cannot pull a docker image" will never be on nightly news, but safety and personal security is a more powerful driver for discourses.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 14:31:08 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47740148</link>
+      <dc:creator>danirod</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47740148</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47740148</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by 0x3f in "We have a 99% email reputation, but Gmail disagrees" ]]>
+</title>
+      <description>
+<![CDATA[ <p>I'm a Font Awesome subscriber and yes, for the record, they spam me with annoying marketing and probably deserve their Gmail woes.<p>They also use that silly dark pattern where they alternate sending out marketing emails from {David,Harry,Sam,Janet,every other person at the company}@fontawesome.com.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 14:00:53 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47739762</link>
+      <dc:creator>0x3f</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47739762</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47739762</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by Youden in "We have a 99% email reputation, but Gmail disagrees" ]]>
+</title>
+      <description>
+<![CDATA[ <p>How do you get email addresses? Do people freely and explicitly choose to sign up to your mailing list, or is it baggage that you're forcing on them without their consent?<p>I notice that when I go to <a href="https://fontawesome.com/" rel="nofollow">https://fontawesome.com/</a> and click "Start for Free", I'm asked for my email address. This isn't necessary for me to use the icons. I just need a page that tells me to add the necessary tags for cdnjs [0].<p>I think your problem is dissonance between what you think your users want and what they actually want. If I had to sign up for a mailing list in order to use every frontend development library I've ever used, and their emails actually made it past my spam filter, I'd never see anything else.<p>I think Google's doing the right thing here. You need to separate your newsletter and product updates from people who just want to set up the icons and move on with their lives.<p>[0]: <a href="https://cdnjs.com/libraries/font-awesome" rel="nofollow">https://cdnjs.com/libraries/font-awesome</a></p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 13:50:51 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47739641</link>
+      <dc:creator>Youden</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47739641</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47739641</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by chandureddyvari in "Pro Max 5x quota exhausted in 1.5 hours despite moderate usage" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Claude has gotten noticeably worse for me too. It goes into long exploration loops for 5+ minutes even when I point it to the exact files to inspect. Then 30 minutes later I hit session limits. Three sessions like that in a day, and suddenly 25% of the weekly limit is gone.<p>I ended up buying the $100 Codex plan. So far it has been much more generous with usage and more accurate than Claude for the kind of work I do.<p>That said, Codex has its own issues. Its personality can be a bit off-putting for my taste. I had to add extra instructions in Agents.md just to make it less snarky. I was annoyed enough that I explicitly told it not to use the word “canonical.”<p>On UI/UX taste, I still think current Codex is behind the Jan/Feb era of Claude Code. Claude used to have much better finesse there. But for backend logic, hard debugging, and complex problem-solving, Codex has been clearly better for me. These days I use Impeccable Skillset inside Codex to compensate for the weaker UI taste, but it still does not quite match the polish and instinct Claude Code used to have.<p>I used to be a huge Claude Code advocate. At this point, I cannot recommend it in good conscience.<p>My advice now is simple: try the $20 plans for Codex and Cursor, and see which one matches your workflow and vibes best</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 13:49:37 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47739625</link>
+      <dc:creator>chandureddyvari</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47739625</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47739625</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by Avicebron in "AI Will Be Met with Violence, and Nothing Good Will Come of It" ]]>
+</title>
+      <description>
+<![CDATA[ <p>I feel like if people keep using AI as a blanket term for "inequality" and "inequality accelerants" then yeah, it's "AI"'s fault. When in reality the whole thing needs to be decoupled..<p>"Gleefully taking away people's livelihoods will be met with violence, and nothing good will come of it." - fixed.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 13:11:56 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47739230</link>
+      <dc:creator>Avicebron</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47739230</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47739230</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by andai in "Anthropic downgraded cache TTL on March 6th" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Well, off the top of my head:<p>- Banning OpenClaw users (within their rights, of course, but bad optics)<p>- Banning 3rd party harnesses in general (ditto)<p>(claude -p still works on the sub but I get the feeling like if I actually use it, I'll get my Anthropic acct. nuked. Would be great to get some clarity on this. If I invoke it from my Telegram bot, is that an unauthorized 3rd party harness?)<p>- Lowering reasoning effort (and then showing up here saying "we'll try to make sure the most valuable customers get the non-gimped experience" (paraphrasing slightly xD))<p>- Massively reduced usage (apparently a bug?) The other day I got <i>21x</i> more usage spend on the same task for Claude vs Codex.<p>- Noticed a very sharp drop in response length in the Claude app. Asked Claude about it and it mentioned several things in the system prompt related to reduced reasoning effort, keeping responses as brief as possible, etc.<p>It's all circumstantial but everything points towards "desperately trying to cut costs".<p>I love Claude and I won't be switching any time soon (though with the usage limits I'm increasingly using Codex for coding), but it's getting hard to recommend it to friends lately. I told a friend "it <i>was</i> the best option, until about two weeks ago..." Now it's up in the air.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 09:54:22 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47737815</link>
+      <dc:creator>andai</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47737815</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47737815</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by sunaurus in "Anthropic downgraded cache TTL on March 6th" ]]>
+</title>
+      <description>
+<![CDATA[ <p>Has anybody else noticed a pretty significant shift in sentiment when discussing Claude/Codex with other engineers since even just a few months ago? Specifically because of the secret/hidden nature of these changes.<p>I keep getting the sense that people feel like they have no idea if they are getting the product that they originally paid for, or something much weaker, and this sentiment seems to be constantly spreading. Like when I hear Anthropic mentioned in the past few weeks, it's almost always in some negative context.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 09:03:35 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47737485</link>
+      <dc:creator>sunaurus</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47737485</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47737485</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by senko in "I run multiple $10K MRR companies on a $20/month tech stack" ]]>
+</title>
+      <description>
+<![CDATA[ <p>If this sounds like basic advice, consider there are a lot of people out there that believe they have to start with serverless, kubernetes, fleets of servers, planet-scale databases, multi-zone high-availability setups, and many other "best practices".<p>Saying "you can just run things on a cheap VPS" sounds amateurish: people are immediately out with "Yeah but scaling", "Yeah but high availability", "Yeah but backups", "Yeah but now you have to maintain it" arguments, that are basically regurgitated sales pitches for various cloud platforms. It's learned helplessness.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 08:52:10 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47737434</link>
+      <dc:creator>senko</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47737434</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47737434</guid>
+    </item>
+    <item>
+      <title>
+<![CDATA[ New comment by hackingonempty in "I run multiple $10K MRR companies on a $20/month tech stack" ]]>
+</title>
+      <description>
+<![CDATA[ <p>> The enterprise mindset dictates that you need an out-of-process database server. But the truth is, a local SQLite file communicating over the C-interface or memory is orders of magnitude faster than making a TCP network hop to a remote Postgres server.<p>I don't want to diss SQLite because it is awesome and more than adequate for many/most web apps but you can connect to Postgres (or any DB really) on localhost over a Unix domain socket and avoid nearly all of the overhead.<p>It's not much harder to use than SQLite, you get all of the Postgres features, it's easier to run reports or whatever on the live db from a different box, and much easier if it comes time to setup a read replica, HA, or run the DB on a different box from the app.<p>I don't think running Postgres on the same box as your app is the same class of optimistic over provisioning as setting up a kubernetes cluster.</p> ]]>
+</description>
+      <pubDate>Sun, 12 Apr 2026 08:06:31 +0000</pubDate>
+      <link>https://news.ycombinator.com/item?id=47737182</link>
+      <dc:creator>hackingonempty</dc:creator>
+      <comments>https://news.ycombinator.com/item?id=47737182</comments>
+      <guid isPermaLink="false">https://news.ycombinator.com/item?id=47737182</guid>
+    </item>
+  </channel>
+</rss>

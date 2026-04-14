@@ -45,6 +45,7 @@ def _entry(entry_id: str) -> HNEntry:
         comment_url=f"https://news.ycombinator.com/item?id={entry_id}",
         id=entry_id,
         published_at=datetime.now(UTC),
+        points=100,
     )
 
 
@@ -227,6 +228,7 @@ def test_notifier_build_message_escapes_text_and_links() -> None:
         comment_url="https://news.ycombinator.com/item?id=1&x=<z>",
         id="1",
         published_at=datetime.now(UTC),
+        points=123,
     )
     article = FakeArticle(url="https://telegra.ph/fake?x=<x>", summary="摘要 <b>text</b>")
 

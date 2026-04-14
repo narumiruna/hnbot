@@ -59,7 +59,7 @@ def test_settings_async_concurrency_must_be_positive() -> None:
 
 def test_settings_feed_points_default() -> None:
     settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id"})
-    assert settings.feed_points == 100
+    assert settings.feed_points == 200
 
 
 def test_settings_feed_points_override() -> None:
