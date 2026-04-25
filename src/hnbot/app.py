@@ -219,6 +219,10 @@ class App:
         if tasks:
             await asyncio.gather(*tasks)
 
+    @retry(
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     async def _process_feed_entry(
         self,
         entry: HNEntry,
