@@ -166,7 +166,7 @@ class Notifier:
             meta_parts.append(f"💬 {entry.num_comments}")
         domain = _extract_domain(entry.link)
         if domain:
-            meta_parts.append(html.escape(domain))
+            meta_parts.append(f"🌐 {html.escape(domain)}")
 
         header = title_line if not meta_parts else f"{title_line}\n{' · '.join(meta_parts)}"
         message_parts = [header]
@@ -175,8 +175,7 @@ class Notifier:
             message_parts.append(f"<blockquote>{html.escape(article.summary)}</blockquote>")
 
         message_parts.append(
-            f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  ·  '
-            f'📝 <a href="{html.escape(page_url)}">完整筆記</a>'
+            f'💬 <a href="{html.escape(entry.comment_url)}">討論</a>  ·  📝 <a href="{html.escape(page_url)}">筆記</a>'
         )
         return "\n\n".join(message_parts)
 

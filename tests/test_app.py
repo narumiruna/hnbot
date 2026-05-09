@@ -237,7 +237,8 @@ def test_notifier_build_message_escapes_text_and_links() -> None:
     message = notifier.build_message(entry, article, article.url)
 
     assert message.startswith(
-        '📰 <b><a href="https://example.com/?a=&lt;tag&gt;">title-&lt;1&gt;</a></b>\n⭐ 123 · 💬 45 · example.com\n\n'
+        '📰 <b><a href="https://example.com/?a=&lt;tag&gt;">title-&lt;1&gt;</a></b>\n'
+        "⭐ 123 · 💬 45 · 🌐 example.com\n\n"
     )
     assert "<blockquote>摘要 &lt;b&gt;text&lt;/b&gt;</blockquote>" in message
     assert 'href="https://news.ycombinator.com/item?id=1&amp;x=&lt;z&gt;"' in message
@@ -260,7 +261,7 @@ def test_notifier_build_message_omits_points_when_missing() -> None:
 
     message = notifier.build_message(entry, article, article.url)
 
-    assert message.startswith('📰 <b><a href="https://example.com/1">title-1</a></b>\nexample.com\n\n')
+    assert message.startswith('📰 <b><a href="https://example.com/1">title-1</a></b>\n🌐 example.com\n\n')
     assert "⭐" not in message
     assert "💬 " not in message.split("\n\n")[0]
 
