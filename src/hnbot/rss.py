@@ -18,6 +18,7 @@ class HNEntry:
     id: str
     published_at: datetime
     points: int | None
+    num_comments: int | None = None
 
 
 @dataclass
@@ -53,6 +54,13 @@ def parse_points(description: str) -> int | None:
     return int(match.group(1))
 
 
+def parse_num_comments(description: str) -> int | None:
+    match = re.search(r"#\s*Comments:\s*(\d+)", description)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
 def _parse_feed(content: bytes) -> HNFeed:
     parsed_dict = feedparser.parse(content)
 
@@ -64,6 +72,7 @@ def _parse_feed(content: bytes) -> HNFeed:
             id=parse_id(entry["comments"]),
             published_at=parse_datetime(entry["published_parsed"]),
             points=parse_points(entry.get("summary", "")),
+            num_comments=parse_num_comments(entry.get("summary", "")),
         )
         for entry in parsed_dict["entries"]
     ]

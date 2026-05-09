@@ -6,6 +6,8 @@ from datetime import UTC
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Protocol
+from typing import cast
+from urllib.parse import urlparse
 
 import httpx
 import redis.asyncio as aioredis
@@ -28,6 +30,13 @@ from hnbot.settings import Settings
 from hnbot.utils import html_to_markdown
 
 _DEFAULT_WAIT = wait_exponential_jitter(initial=1, max=8)
+
+
+def _extract_domain(url: str) -> str | None:
+    host = urlparse(url).hostname
+    if not host:
+        return None
+    return host.removeprefix("www.")
 
 
 def _is_transient_fetch_error(exc: BaseException) -> bool:
@@ -107,6 +116,14 @@ class SummaryCarrier(Protocol):
     summary: str
 
 
+class RedisClient(Protocol):
+    def exists(self, key: str) -> Awaitable[object]: ...
+
+    def set(self, key: str, value: str) -> Awaitable[object]: ...
+
+    def aclose(self) -> Awaitable[object]: ...
+
+
 class CommentFetcher:
     def __init__(self, http_client: httpx.AsyncClient, settings: Settings) -> None:
         self.http_client = http_client
@@ -140,16 +157,25 @@ class Notifier:
         self.settings = settings
 
     def build_message(self, entry: HNEntry, article: SummaryCarrier, page_url: str) -> str:
-        escaped_title = html.escape(entry.title)
-        title_line = f"<b>{escaped_title}</b>"
+        title_line = f'📰 <b><a href="{html.escape(entry.link)}">{html.escape(entry.title)}</a></b>'
+
+        meta_parts: list[str] = []
         if entry.points is not None:
-            title_line = f"{title_line}  ⭐ {entry.points}"
-        message_parts = [title_line]
+            meta_parts.append(f"⭐ {entry.points}")
+        if entry.num_comments is not None:
+            meta_parts.append(f"💬 {entry.num_comments}")
+        domain = _extract_domain(entry.link)
+        if domain:
+            meta_parts.append(html.escape(domain))
+
+        header = title_line if not meta_parts else f"{title_line}\n{' · '.join(meta_parts)}"
+        message_parts = [header]
+
         if article.summary:
-            message_parts.append(html.escape(article.summary))
+            message_parts.append(f"<blockquote>{html.escape(article.summary)}</blockquote>")
+
         message_parts.append(
-            f'🔗 <a href="{html.escape(entry.link)}">原文連結</a>  '
-            f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  '
+            f'💬 <a href="{html.escape(entry.comment_url)}">HN 討論</a>  ·  '
             f'📝 <a href="{html.escape(page_url)}">完整筆記</a>'
         )
         return "\n\n".join(message_parts)
@@ -172,10 +198,13 @@ async def _with_optional_semaphore[T](
 class App:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.redis_client = aioredis.Redis(
-            host=settings.redis_host,
-            port=settings.redis_port,
-            db=settings.redis_db,
+        self.redis_client = cast(
+            RedisClient,
+            aioredis.Redis(
+                host=settings.redis_host,
+                port=settings.redis_port,
+                db=settings.redis_db,
+            ),
         )
         self.http_client = httpx.AsyncClient(
             timeout=httpx.Timeout(settings.http_timeout_seconds),

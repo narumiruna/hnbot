@@ -7,6 +7,7 @@ import pytest
 
 from hnbot.rss import _parse_feed
 from hnbot.rss import parse_datetime
+from hnbot.rss import parse_num_comments
 from hnbot.rss import parse_points
 
 
@@ -38,6 +39,14 @@ def test_parse_points_returns_none_when_missing() -> None:
     assert parse_points("<p>No score available</p>") is None
 
 
+def test_parse_num_comments_returns_integer() -> None:
+    assert parse_num_comments("<p>Points: 123</p><p># Comments: 45</p>") == 45
+
+
+def test_parse_num_comments_returns_none_when_missing() -> None:
+    assert parse_num_comments("<p>Points: 123</p>") is None
+
+
 def test_parse_feed_entry_fields(sample_rss: bytes) -> None:
     feed = _parse_feed(sample_rss)
     entry = next(entry for entry in feed.entries if entry.id == "47737182")
@@ -48,5 +57,6 @@ def test_parse_feed_entry_fields(sample_rss: bytes) -> None:
     assert entry.comment_url == "https://news.ycombinator.com/item?id=47737182"
     assert entry.id == "47737182"
     assert entry.points is None
+    assert entry.num_comments is None
     assert isinstance(entry.published_at, datetime)
     assert entry.published_at.tzinfo == UTC

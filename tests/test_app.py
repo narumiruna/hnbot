@@ -122,7 +122,8 @@ async def test_process_entry_skips_after_retry_exhausted(monkeypatch) -> None:
 @pytest.mark.anyio
 async def test_process_entry_skips_invalid_prompt_error(monkeypatch) -> None:
     app = App(_settings())
-    app.redis_client = FakeRedis()
+    fake_redis = FakeRedis()
+    app.redis_client = fake_redis
 
     async def fake_get(url: str) -> httpx.Response:
         request = httpx.Request("GET", url)
@@ -142,7 +143,7 @@ async def test_process_entry_skips_invalid_prompt_error(monkeypatch) -> None:
 
     try:
         assert await app._process_feed_entry(_entry("3")) is False
-        assert "hnbot:entry:3" not in app.redis_client._data
+        assert "hnbot:entry:3" not in fake_redis._data
     finally:
         await _close_app_client(app)
 
@@ -229,16 +230,19 @@ def test_notifier_build_message_escapes_text_and_links() -> None:
         id="1",
         published_at=datetime.now(UTC),
         points=123,
+        num_comments=45,
     )
     article = FakeArticle(url="https://telegra.ph/fake?x=<x>", summary="摘要 <b>text</b>")
 
     message = notifier.build_message(entry, article, article.url)
 
-    assert message.startswith("<b>title-&lt;1&gt;</b>  ⭐ 123\n\n")
-    assert "摘要 &lt;b&gt;text&lt;/b&gt;" in message
-    assert 'href="https://example.com/?a=&lt;tag&gt;"' in message
+    assert message.startswith(
+        '📰 <b><a href="https://example.com/?a=&lt;tag&gt;">title-&lt;1&gt;</a></b>\n⭐ 123 · 💬 45 · example.com\n\n'
+    )
+    assert "<blockquote>摘要 &lt;b&gt;text&lt;/b&gt;</blockquote>" in message
     assert 'href="https://news.ycombinator.com/item?id=1&amp;x=&lt;z&gt;"' in message
     assert 'href="https://telegra.ph/fake?x=&lt;x&gt;"' in message
+    assert "原文連結" not in message
 
 
 def test_notifier_build_message_omits_points_when_missing() -> None:
@@ -250,13 +254,15 @@ def test_notifier_build_message_omits_points_when_missing() -> None:
         id="1",
         published_at=datetime.now(UTC),
         points=None,
+        num_comments=None,
     )
     article = FakeArticle()
 
     message = notifier.build_message(entry, article, article.url)
 
-    assert message.startswith("<b>title-1</b>\n\n")
+    assert message.startswith('📰 <b><a href="https://example.com/1">title-1</a></b>\nexample.com\n\n')
     assert "⭐" not in message
+    assert "💬 " not in message.split("\n\n")[0]
 
 
 def test_article_pipeline_generates_article_and_page_url(monkeypatch) -> None:
