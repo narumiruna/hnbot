@@ -240,7 +240,8 @@ def test_notifier_build_message_escapes_text_and_links() -> None:
         '📰 <b><a href="https://example.com/?a=&lt;tag&gt;">title-&lt;1&gt;</a></b>\n'
         "⭐ 123 · 💬 45 · 🌐 example.com\n\n"
     )
-    assert "<blockquote>摘要 &lt;b&gt;text&lt;/b&gt;</blockquote>" in message
+    assert "摘要 &lt;b&gt;text&lt;/b&gt;" in message
+    assert "<blockquote>" not in message
     assert 'href="https://news.ycombinator.com/item?id=1&amp;x=&lt;z&gt;"' in message
     assert 'href="https://telegra.ph/fake?x=&lt;x&gt;"' in message
     assert "原文連結" not in message
