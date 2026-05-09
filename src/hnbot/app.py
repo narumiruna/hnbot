@@ -172,7 +172,7 @@ class Notifier:
         message_parts = [header]
 
         if article.summary:
-            message_parts.append(f"<blockquote>{html.escape(article.summary)}</blockquote>")
+            message_parts.append(f"{html.escape(article.summary)}")
 
         message_parts.append(
             f'💬 <a href="{html.escape(entry.comment_url)}">討論</a>  ·  📝 <a href="{html.escape(page_url)}">筆記</a>'
