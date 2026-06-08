@@ -2,9 +2,6 @@ import asyncio
 import html
 from collections.abc import Awaitable
 from collections.abc import Callable
-from datetime import UTC
-from datetime import datetime
-from email.utils import parsedate_to_datetime
 from typing import Protocol
 from typing import cast
 from urllib.parse import urlparse
@@ -18,18 +15,16 @@ from loguru import logger
 from openai import BadRequestError
 from tenacity import RetryCallState
 from tenacity import retry
-from tenacity import retry_if_exception
 from tenacity import stop_after_attempt
-from tenacity import wait_exponential_jitter
 
 from hnbot.article import Article
 from hnbot.article import generate_article
+from hnbot.http_retry import log_transient_http_retry
+from hnbot.http_retry import retry_transient_http_errors
 from hnbot.rss import HNEntry
 from hnbot.rss import get_hn_feed
 from hnbot.settings import Settings
 from hnbot.utils import html_to_markdown
-
-_DEFAULT_WAIT = wait_exponential_jitter(initial=1, max=8)
 
 
 def _extract_domain(url: str) -> str | None:
@@ -39,67 +34,14 @@ def _extract_domain(url: str) -> str | None:
     return host.removeprefix("www.")
 
 
-def _is_transient_fetch_error(exc: BaseException) -> bool:
-    if isinstance(exc, httpx.HTTPStatusError):
-        status_code = exc.response.status_code
-        return status_code == 429 or 500 <= status_code < 600
+def _log_comment_fetch_retry(retry_state: RetryCallState) -> None:
+    subject = "HN comments"
+    if len(retry_state.args) >= 2:
+        entry = retry_state.args[1]
+        if isinstance(entry, HNEntry):
+            subject = f"HN comments for entry {entry.id}"
 
-    return isinstance(exc, httpx.RequestError)
-
-
-def _retry_after_seconds(exc: BaseException) -> float | None:
-    if not isinstance(exc, httpx.HTTPStatusError):
-        return None
-
-    retry_after = exc.response.headers.get("Retry-After")
-    if retry_after is None:
-        return None
-
-    try:
-        return max(float(retry_after), 0.0)
-    except ValueError:
-        parsed_dt = parsedate_to_datetime(retry_after)
-        if parsed_dt.tzinfo is None:
-            parsed_dt = parsed_dt.replace(tzinfo=UTC)
-        return max((parsed_dt - datetime.now(UTC)).total_seconds(), 0.0)
-
-
-def _retry_wait(retry_state: RetryCallState) -> float:
-    if retry_state.outcome is None:
-        return _DEFAULT_WAIT(retry_state)
-
-    exc = retry_state.outcome.exception()
-    if exc is None:
-        return _DEFAULT_WAIT(retry_state)
-
-    retry_after_seconds = _retry_after_seconds(exc)
-    if retry_after_seconds is not None:
-        return retry_after_seconds
-
-    return _DEFAULT_WAIT(retry_state)
-
-
-def _log_retry(retry_state: RetryCallState) -> None:
-    if retry_state.outcome is None:
-        return
-
-    exc = retry_state.outcome.exception()
-    if exc is None:
-        return
-
-    if len(retry_state.args) < 2:
-        return
-
-    entry = retry_state.args[1]
-    if not isinstance(entry, HNEntry):
-        return
-
-    logger.warning(
-        "Transient fetch error for entry {} on attempt {}: {}",
-        entry.id,
-        retry_state.attempt_number,
-        exc,
-    )
+    log_transient_http_retry(retry_state, subject=subject)
 
 
 async def send_message(message: str, settings: Settings) -> None:
@@ -129,13 +71,7 @@ class CommentFetcher:
         self.http_client = http_client
         self.settings = settings
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=_retry_wait,
-        retry=retry_if_exception(_is_transient_fetch_error),
-        before_sleep=_log_retry,
-        reraise=True,
-    )
+    @retry_transient_http_errors(before_sleep=_log_comment_fetch_retry)
     async def _fetch_with_retry(self, entry: HNEntry) -> str:
         resp = await self.http_client.get(entry.comment_url)
         resp.raise_for_status()
