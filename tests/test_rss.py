@@ -3,9 +3,11 @@ from datetime import UTC
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 import pytest
 
 from hnbot.rss import _parse_feed
+from hnbot.rss import get_hn_feed
 from hnbot.rss import parse_datetime
 from hnbot.rss import parse_num_comments
 from hnbot.rss import parse_points
@@ -16,6 +18,11 @@ def sample_rss() -> bytes:
     path = Path("tests/data/sample_rss.xml")
     with path.open("rb") as f:
         return f.read()
+
+
+@pytest.fixture
+def no_http_retry_wait(monkeypatch) -> None:
+    monkeypatch.setattr("hnbot.http_retry._DEFAULT_WAIT", lambda _retry_state: 0.0)
 
 
 def test_parse_datetime_uses_only_calendar_fields() -> None:
@@ -60,3 +67,49 @@ def test_parse_feed_entry_fields(sample_rss: bytes) -> None:
     assert entry.num_comments is None
     assert isinstance(entry.published_at, datetime)
     assert entry.published_at.tzinfo == UTC
+
+
+@pytest.mark.anyio
+async def test_get_hn_feed_retries_connect_timeout_then_success(
+    sample_rss: bytes, monkeypatch, no_http_retry_wait
+) -> None:
+    client = httpx.AsyncClient()
+    call_count = {"count": 0}
+
+    async def fake_get(url: str) -> httpx.Response:
+        call_count["count"] += 1
+        request = httpx.Request("GET", url)
+        if call_count["count"] == 1:
+            raise httpx.ConnectTimeout("connect timed out", request=request)
+        return httpx.Response(200, request=request, content=sample_rss)
+
+    monkeypatch.setattr(client, "get", fake_get)
+
+    try:
+        feed = await get_hn_feed(client, points=200)
+    finally:
+        await client.aclose()
+
+    assert feed.title == "Hacker News: Best Comments"
+    assert call_count["count"] == 2
+
+
+@pytest.mark.anyio
+async def test_get_hn_feed_raises_after_transient_retry_exhausted(monkeypatch, no_http_retry_wait) -> None:
+    client = httpx.AsyncClient()
+    call_count = {"count": 0}
+
+    async def fake_get(url: str) -> httpx.Response:
+        call_count["count"] += 1
+        request = httpx.Request("GET", url)
+        raise httpx.ConnectTimeout("connect timed out", request=request)
+
+    monkeypatch.setattr(client, "get", fake_get)
+
+    try:
+        with pytest.raises(httpx.ConnectTimeout):
+            await get_hn_feed(client, points=200)
+    finally:
+        await client.aclose()
+
+    assert call_count["count"] == 3

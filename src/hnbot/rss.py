@@ -8,6 +8,10 @@ from urllib.parse import urlparse
 
 import feedparser
 import httpx
+from tenacity import RetryCallState
+
+from hnbot.http_retry import log_transient_http_retry
+from hnbot.http_retry import retry_transient_http_errors
 
 
 @dataclass
@@ -84,10 +88,18 @@ def _parse_feed(content: bytes) -> HNFeed:
     )
 
 
-async def get_hn_feed(client: httpx.AsyncClient, points: int) -> HNFeed:
-    url = f"https://hnrss.org/newest?points={points}"
+def _log_feed_retry(retry_state: RetryCallState) -> None:
+    log_transient_http_retry(retry_state, subject="HN RSS feed")
 
+
+@retry_transient_http_errors(before_sleep=_log_feed_retry)
+async def _fetch_feed_content(client: httpx.AsyncClient, url: str) -> bytes:
     resp = await client.get(url)
     resp.raise_for_status()
+    return resp.content
 
-    return _parse_feed(resp.content)
+
+async def get_hn_feed(client: httpx.AsyncClient, points: int) -> HNFeed:
+    url = f"https://hnrss.org/newest?points={points}"
+    content = await _fetch_feed_content(client, url)
+    return _parse_feed(content)

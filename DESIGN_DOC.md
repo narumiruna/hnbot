@@ -75,8 +75,12 @@ flowchart LR
 
 - `src/hnbot/app.py`
 - Orchestrates feed batch execution.
-- Handles dedupe checks, retries, bounded concurrency, and pipeline error boundaries.
+- Handles dedupe checks, bounded concurrency, and pipeline error boundaries.
 - Sends final Telegram notifications.
+
+- `src/hnbot/http_retry.py`
+- Defines the shared transient HTTP retry policy for idempotent external GET requests.
+- Retries `httpx` request failures, HTTP 429, and HTTP 5xx with bounded backoff and retry logging.
 
 - `src/hnbot/rss.py`
 - Fetches and parses HN RSS feed into typed `HNFeed` / `HNEntry` objects.
@@ -135,14 +139,18 @@ Telegram message contract:
 
 ## Reliability and Failure Handling
 
-Comment fetch retry policy (`CommentFetcher._fetch_with_retry`):
+Shared transient HTTP retry policy (`hnbot.http_retry`):
+- Applied to HNRSS feed fetch (`get_hn_feed`) and HN comment fetch (`CommentFetcher._fetch_with_retry`).
 - Maximum attempts: 3.
 - Retry condition:
-  - `httpx.RequestError`
+  - `httpx.RequestError` (for example `ConnectTimeout`).
   - `httpx.HTTPStatusError` with 429 or 5xx.
 - Wait strategy:
-  - If `Retry-After` header is present on HTTP status error, use it.
+  - If `Retry-After` header is present on HTTP status error and can be parsed, use it.
   - Otherwise exponential jitter (`initial=1`, `max=8`).
+
+Batch/feed failure boundary:
+- If HNRSS feed fetch fails after retries, the batch raises the final HTTP error and the cron job fails after retry evidence is logged.
 
 Per-entry failure boundaries:
 - If comment fetch fails after retries: entry is skipped (returns `False`).
@@ -212,7 +220,7 @@ Data flow considerations:
 Current tests validate:
 - Settings requirements/defaults and validation constraints.
 - RSS parsing behavior and entry reversal.
-- Retry behavior for transient fetch errors.
+- Retry behavior for transient feed fetch and comment fetch errors.
 - Invalid-prompt article generation failures are skipped without marking Redis state.
 - Markdown truncation behavior by configured max length.
 - Parallel pipeline behavior (including non-deterministic send order).
@@ -222,12 +230,11 @@ Current tests validate:
 Known test gaps:
 - No full integration test against real external services.
 - Limited direct tests for `page.py` sanitizer edge cases.
-- Feed fetch (`get_hn_feed`) retry is not explicitly covered.
 
 ## Known Limitations
 
 - Single-run batch execution; no continuous daemon loop.
 - Dedupe key has no TTL and can grow without a retention policy.
-- Heavy dependence on external service availability and latency.
-- Feed-level fetch is not wrapped in retry logic inside `App._run_feed_batch()`.
+- Heavy dependence on external service availability and latency after bounded HTTP retries are exhausted.
+- OpenAI generation, Telegraph page creation, and Telegram sending are not retried because they can have non-idempotent side effects or extra cost.
 - Telegraph account creation is performed at page creation time.
