@@ -27,3 +27,8 @@ def test_retry_after_seconds_parses_numeric_header() -> None:
 
 def test_retry_after_seconds_ignores_invalid_header() -> None:
     assert retry_after_seconds(_http_status_error(429, retry_after="not a date")) is None
+
+
+def test_retry_after_seconds_ignores_non_finite_numeric_header() -> None:
+    assert retry_after_seconds(_http_status_error(429, retry_after="NaN")) is None
+    assert retry_after_seconds(_http_status_error(429, retry_after="inf")) is None

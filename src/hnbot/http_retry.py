@@ -3,6 +3,7 @@ from collections.abc import Callable
 from datetime import UTC
 from datetime import datetime
 from email.utils import parsedate_to_datetime
+from math import isfinite
 from typing import ParamSpec
 from typing import TypeVar
 from typing import cast
@@ -39,12 +40,16 @@ def retry_after_seconds(exc: BaseException) -> float | None:
         return None
 
     try:
-        return max(float(retry_after), 0.0)
+        retry_after_value = float(retry_after)
+        if isfinite(retry_after_value):
+            return max(retry_after_value, 0.0)
     except ValueError:
-        try:
-            parsed_dt = parsedate_to_datetime(retry_after)
-        except (TypeError, ValueError, IndexError, OverflowError):
-            return None
+        pass
+
+    try:
+        parsed_dt = parsedate_to_datetime(retry_after)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return None
 
     if parsed_dt.tzinfo is None:
         parsed_dt = parsed_dt.replace(tzinfo=UTC)
