@@ -42,7 +42,7 @@ hnrss.org RSS feed
 - [uv](https://docs.astral.sh/uv/)
 - A [Telegram Bot Token](https://core.telegram.org/bots#how-do-i-create-a-bot) and a target chat ID
 - An [OpenAI API key](https://platform.openai.com/api-keys)
-- A running [Redis](https://redis.io/) instance (for deduplication)
+- A running [Redis](https://redis.io/) instance for local execution (included when using Docker Compose)
 
 ### Install & Run
 
@@ -78,6 +78,26 @@ pip install hnbot
 ```
 
 ### Docker
+
+Docker Compose is the recommended service setup. It builds hnbot, runs `hnbot serve`, and keeps Redis deduplication
+data in a named volume:
+
+```sh
+cp .env.example .env
+# Edit .env and fill in the required values
+
+docker compose up --build -d
+docker compose logs -f hnbot
+```
+
+Stop the services without deleting Redis data:
+
+```sh
+docker compose down
+```
+
+To build or run the hnbot image without Compose, configure `REDIS_HOST` to a Redis server reachable from the
+container:
 
 ```sh
 docker build -t hnbot .
