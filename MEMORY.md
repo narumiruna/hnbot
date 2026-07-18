@@ -8,6 +8,7 @@
 - Symptom: `docker` is absent in this WSL shell even though Docker Desktop is installed. Cause: WSL integration does not expose the Linux CLI and the Desktop daemon may be stopped. Fix: launch `/mnt/c/Program Files/Docker/Docker/Docker Desktop.exe` and invoke `/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe`; enable WSL integration for a normal `docker` command.
 - Symptom: pre-commit alternates between `cargo-clippy` and `tombi-format` modifying `Cargo.lock`. Cause: Cargo rewrites Tombi's formatting for its generated lockfile. Fix: exclude both `Cargo.lock` and `uv.lock` under `[tool.tombi.files]`.
 - Symptom: real OpenAI Responses requests reject a Schemars-generated schema despite `strict: true`. Cause: strict structured outputs require `additionalProperties: false` on every root and nested object. Fix: recursively close generated object schemas and assert both `Article` and `Section` in the HTTP contract test.
+- Symptom: the container exhibits behavior already fixed in the Rust source, such as the old short OpenAI timeout. Cause: `docker compose up -d` reuses the existing hnbot image. Fix: run `docker compose up -d --build` after source changes.
 
 ## TASTE
 
