@@ -168,20 +168,11 @@ class App:
         self.pipeline = ArticlePipeline()
         self.notifier = Notifier(self.settings)
 
-    def run(self) -> None:
-        asyncio.run(self._run_async())
-
     def serve(self, poll_interval_seconds: float) -> None:
         try:
             asyncio.run(self._serve_async(poll_interval_seconds))
         except (asyncio.CancelledError, KeyboardInterrupt):
             logger.info("Service stopped")
-
-    async def _run_async(self) -> None:
-        try:
-            await self._run_feed_batch()
-        finally:
-            await self._close_clients()
 
     async def _serve_async(self, poll_interval_seconds: float) -> None:
         loop = asyncio.get_running_loop()

@@ -8,3 +8,4 @@
 ## TASTE
 
 - Prefer `uv`-managed commands (for example `uv run python ...`, `uv run pytest`, `uv sync`) instead of invoking bare `python` directly in this repository.
+- Prefer a service-only CLI (`hnbot serve`); avoid maintaining bare or `hnbot main` one-shot modes.

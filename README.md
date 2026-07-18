@@ -9,7 +9,7 @@ A Telegram bot that monitors [Hacker News](https://news.ycombinator.com/) for tr
 - **Telegraph publishing** — creates readable long-form pages on [Telegraph](https://telegra.ph/)
 - **Telegram notifications** — sends formatted messages with links to the original article, HN discussion, and the generated summary
 - **Redis deduplication** — tracks processed entries to avoid sending duplicate notifications
-- **Batch or service execution** — process one feed batch for cron, or continuously poll for new entries
+- **Continuous service execution** — process the current feed immediately, then keep polling for new entries
 - **Concurrent processing** — handles multiple articles in parallel with configurable concurrency limits
 - **Retry with backoff** — automatically retries transient HTTP failures
 
@@ -58,15 +58,12 @@ uv sync
 cp .env.example .env
 # Edit .env and fill in the required values
 
-# Process one feed batch
-uv run hnbot
-
-# Or keep polling for new entries
+# Start the polling service
 uv run hnbot serve
 ```
 
-`hnbot` and `hnbot main` process one feed batch and exit. `hnbot serve` immediately processes the current feed,
-then polls again after each completed batch. Redis prevents successfully processed entries from being sent again.
+`hnbot serve` immediately processes the current feed, then polls again after each completed batch. Redis prevents
+successfully processed entries from being sent again.
 
 The service uses `FEED_POLL_INTERVAL_SECONDS` by default. Override it for one invocation with
 `uv run hnbot serve --poll-interval 5`; the interval must be at least one second.
@@ -101,9 +98,6 @@ container:
 
 ```sh
 docker build -t hnbot .
-docker run --env-file .env hnbot
-
-# Run the image as a continuous service
 docker run --env-file .env hnbot serve
 ```
 

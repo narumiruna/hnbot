@@ -16,7 +16,7 @@ Non-goals:
 
 ## System Context
 
-`hnbot` is a batch or long-running Telegram bot pipeline that:
+`hnbot` is a long-running Telegram bot pipeline that:
 - Reads Hacker News entries from `hnrss.org`.
 - Fetches the linked HN discussion page HTML.
 - Converts HTML to Markdown and summarizes it via OpenAI.
@@ -35,17 +35,11 @@ External dependencies:
 
 Local runtime:
 - Entrypoint: `hnbot` console script -> `hnbot.cli:app`.
-- Batch commands: `uv run hnbot` or `uv run hnbot main`.
 - Service command: `uv run hnbot serve`.
 - `.env` is loaded by CLI via `python-dotenv`.
 
-Scheduled runtime:
-- GitHub Actions workflow `.github/workflows/cron.yml` runs every 4 hours (`0 */4 * * *`) on a self-hosted runner.
-- The cron job executes `uv run hnbot` with secrets for OpenAI/Telegram/logfire.
-
 Execution model:
-- A single invocation processes one feed batch and exits.
-- Service mode immediately processes one feed batch, waits `feed_poll_interval_seconds`, and repeats.
+- The service immediately processes one feed batch, waits `feed_poll_interval_seconds`, and repeats.
 - Batches never overlap; the polling delay starts only after every entry task from the current batch has finished.
 
 ## End-to-End Flow
@@ -156,8 +150,8 @@ Shared transient HTTP retry policy (`hnbot.http_retry`):
     (default `30.0`) when that header is absent.
 
 Batch/feed failure boundary:
-- If HNRSS feed fetch fails after retries, the batch raises the final HTTP error and the cron job fails after retry evidence is logged.
-- In service mode, a batch exception is logged and the next poll starts after the configured interval.
+- If HNRSS feed fetch fails after retries, the batch raises the final HTTP error after retry evidence is logged.
+- The service logs the batch exception and starts the next poll after the configured interval.
 
 Per-entry failure boundaries:
 - If comment fetch fails after retries: entry is skipped (returns `False`).
@@ -242,7 +236,7 @@ Current tests validate:
 - Parallel pipeline behavior (including non-deterministic send order).
 - Message HTML escaping for title/summary/links.
 - OpenAI model propagation from settings in the LLM wrapper.
-- Batch and service CLI dispatch, polling interval precedence, sequential polling, failure recovery, and cancellation cleanup.
+- Service CLI dispatch, polling interval precedence, sequential polling, failure recovery, and cancellation cleanup.
 
 Known test gaps:
 - No full integration test against real external services.
