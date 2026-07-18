@@ -131,10 +131,19 @@ fn parse_entry(entry: &Entry) -> Result<HnEntry, FeedError> {
 
 pub fn parse_id(value: &str) -> Result<String, FeedError> {
     let url = Url::parse(value).map_err(|error| FeedError::Parse(error.to_string()))?;
-    url.query_pairs()
+    let id = url
+        .query_pairs()
         .find(|(key, _)| key == "id")
         .map(|(_, value)| value.into_owned())
-        .ok_or_else(|| FeedError::Parse("comment URL has no id".to_owned()))
+        .ok_or_else(|| FeedError::Parse("comment URL has no id".to_owned()))?;
+    let parsed = if id.is_empty() || !id.bytes().all(|byte| byte.is_ascii_digit()) {
+        None
+    } else {
+        id.parse::<u64>().ok().filter(|id| *id > 0)
+    };
+    parsed
+        .map(|id| id.to_string())
+        .ok_or_else(|| FeedError::Parse("comment URL id must be a positive integer".to_owned()))
 }
 
 fn parse_metric(content: &str, pattern: &str) -> Option<u32> {
@@ -170,7 +179,7 @@ mod tests {
     #[test]
     fn parses_id_and_metrics() {
         assert_eq!(
-            parse_id("https://news.ycombinator.com/item?id=123").unwrap(),
+            parse_id("https://news.ycombinator.com/item?id=000123").unwrap(),
             "123"
         );
         assert_eq!(
@@ -178,6 +187,14 @@ mod tests {
             Some(12)
         );
         assert_eq!(parse_metric("missing", r"Points:\s*(\d+)"), None);
+        for invalid in [
+            "https://news.ycombinator.com/item?id=",
+            "https://news.ycombinator.com/item?id=0",
+            "https://news.ycombinator.com/item?id=not-a-number",
+            "https://news.ycombinator.com/item?id=18446744073709551616",
+        ] {
+            assert!(parse_id(invalid).is_err(), "accepted {invalid}");
+        }
     }
 
     #[test]

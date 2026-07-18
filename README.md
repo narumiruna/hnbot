@@ -8,11 +8,11 @@ A Rust service that monitors [Hacker News](https://news.ycombinator.com/), summa
 - **Discussion retrieval** — fetches each complete comment tree in one request from the HN Algolia API instead of rate-limited HN page scraping
 - **AI summaries** — requests strict structured articles from the OpenAI Responses API
 - **Telegraph publishing** — creates long-form public notes
-- **Telegram notifications** — sends escaped HTML messages with source, discussion, and note links
-- **Redis deduplication** — preserves processed entry keys across restarts
+- **Telegram notifications** — sends escaped, length-bounded HTML messages with source, discussion, and note links
+- **Redis deduplication** — preserves processed entry keys across restarts and collapses duplicate IDs within each feed batch
 - **Continuous service execution** — processes the current feed, then polls sequentially
 - **Bounded concurrency and pacing** — separates comment-fetch and article-pipeline limits and globally spaces HN requests
-- **Retry and cooldown handling** — retries transient feed/comment errors and honors `Retry-After`
+- **Retry and cooldown handling** — retries transient feed/comment errors, honors `Retry-After`, and retries Redis operations without replaying notification side effects
 - **Structured stdout logs** — emits JSON through Rust `tracing` without logging credentials
 
 ## Runtime flow

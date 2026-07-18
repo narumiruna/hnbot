@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -20,10 +22,13 @@ pub enum Command {
 
 fn parse_poll_interval(raw: &str) -> Result<f64, String> {
     let value = raw.parse::<f64>().map_err(|error| error.to_string())?;
-    if value.is_finite() && value >= 1.0 {
+    if value.is_finite() && value >= 1.0 && Duration::try_from_secs_f64(value).is_ok() {
         Ok(value)
     } else {
-        Err("poll interval must be finite and at least one second".to_owned())
+        Err(
+            "poll interval must be finite, at least one second, and representable as a duration"
+                .to_owned(),
+        )
     }
 }
 
@@ -48,6 +53,11 @@ mod tests {
 
     #[test]
     fn invalid_override_is_rejected() {
-        assert!(Cli::try_parse_from(["hnbot", "serve", "--poll-interval", "0.5"]).is_err());
+        for value in ["0.5", "2e19"] {
+            assert!(
+                Cli::try_parse_from(["hnbot", "serve", "--poll-interval", value]).is_err(),
+                "accepted {value}"
+            );
+        }
     }
 }

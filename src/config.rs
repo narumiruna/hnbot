@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::env;
+use std::time::Duration;
 
 use thiserror::Error;
 
@@ -206,10 +207,10 @@ fn float(
         None => default,
     };
     let valid_min = if allow_min { value >= min } else { value > min };
-    if !value.is_finite() || !valid_min {
+    if !value.is_finite() || !valid_min || Duration::try_from_secs_f64(value).is_err() {
         return Err(ConfigError::Invalid {
             name,
-            reason: "must be finite and within range".to_owned(),
+            reason: "must be finite, within range, and representable as a duration".to_owned(),
         });
     }
     Ok(value)
@@ -261,6 +262,14 @@ mod tests {
             values.insert("FEED_POLL_INTERVAL_SECONDS".to_owned(), value.to_owned());
             assert!(Settings::from_map(&values).is_err(), "accepted {value}");
         }
+    }
+
+    #[test]
+    fn unrepresentable_durations_are_rejected() {
+        let mut values = required_values();
+        values.insert("HTTP_TIMEOUT_SECONDS".to_owned(), "2e19".to_owned());
+
+        assert!(Settings::from_map(&values).is_err());
     }
 
     #[test]

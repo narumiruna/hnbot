@@ -9,6 +9,10 @@ use crate::article::Article;
 use crate::http::{HttpFailure, response_json};
 use crate::rss::HnEntry;
 
+const TELEGRAM_MAX_TEXT_CHARS: usize = 4_096;
+const TELEGRAM_MAX_SUMMARY_CHARS: usize = 500;
+const TELEGRAM_MAX_DOMAIN_CHARS: usize = 253;
+
 #[derive(Debug, Error)]
 pub enum TelegramError {
     #[error(transparent)]
@@ -74,10 +78,6 @@ impl Notifier for TelegramClient {
 }
 
 pub fn build_message(entry: &HnEntry, article: &Article, page_url: &str) -> String {
-    let title = html_escape::encode_text(&entry.title);
-    let link = html_escape::encode_double_quoted_attribute(&entry.link);
-    let title_line = format!("📰 <b><a href=\"{link}\">{title}</a></b>");
-
     let mut metadata = Vec::new();
     if let Some(points) = entry.points {
         metadata.push(format!("⭐ {points}"));
@@ -89,20 +89,38 @@ pub fn build_message(entry: &HnEntry, article: &Article, page_url: &str) -> Stri
         .ok()
         .and_then(|url| url.host_str().map(ToOwned::to_owned))
     {
-        metadata.push(format!(
-            "🌐 {}",
-            domain.strip_prefix("www.").unwrap_or(&domain)
-        ));
+        let domain = truncate_chars(
+            domain.strip_prefix("www.").unwrap_or(&domain),
+            TELEGRAM_MAX_DOMAIN_CHARS,
+        );
+        metadata.push(format!("🌐 {domain}"));
     }
+    let metadata = metadata.join(" · ");
+    let summary = truncate_chars(&article.summary, TELEGRAM_MAX_SUMMARY_CHARS);
+    let footer_text = "💬 討論  ·  📝 筆記";
+    let separators = if summary.is_empty() { 2 } else { 4 };
+    let fixed_visible_chars = "📰 ".chars().count()
+        + (!metadata.is_empty()) as usize
+        + metadata.chars().count()
+        + summary.chars().count()
+        + footer_text.chars().count()
+        + separators;
+    let title = truncate_chars(
+        &entry.title,
+        TELEGRAM_MAX_TEXT_CHARS.saturating_sub(fixed_visible_chars),
+    );
+    let title = html_escape::encode_text(&title);
+    let link = html_escape::encode_double_quoted_attribute(&entry.link);
+    let title_line = format!("📰 <b><a href=\"{link}\">{title}</a></b>");
 
     let header = if metadata.is_empty() {
         title_line
     } else {
-        format!("{title_line}\n{}", metadata.join(" · "))
+        format!("{title_line}\n{metadata}")
     };
     let mut parts = vec![header];
-    if !article.summary.is_empty() {
-        parts.push(html_escape::encode_text(&article.summary).into_owned());
+    if !summary.is_empty() {
+        parts.push(html_escape::encode_text(&summary).into_owned());
     }
     let comment_url = html_escape::encode_double_quoted_attribute(&entry.comment_url);
     let page_url = html_escape::encode_double_quoted_attribute(page_url);
@@ -110,6 +128,20 @@ pub fn build_message(entry: &HnEntry, article: &Article, page_url: &str) -> Stri
         "💬 <a href=\"{comment_url}\">討論</a>  ·  📝 <a href=\"{page_url}\">筆記</a>"
     ));
     parts.join("\n\n")
+}
+
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    if value.chars().count() <= max_chars {
+        return value.to_owned();
+    }
+    if max_chars == 0 {
+        return String::new();
+    }
+    value
+        .chars()
+        .take(max_chars - 1)
+        .chain(std::iter::once('…'))
+        .collect()
 }
 
 #[cfg(test)]
@@ -151,6 +183,23 @@ mod tests {
         assert!(message.contains("⭐ 123 · 💬 45 · 🌐 example.com"));
         assert!(message.contains("摘要 &lt;b&gt;text&lt;/b&gt;"));
         assert!(message.contains("id=1&amp;x=&lt;z&gt;"));
+    }
+
+    #[test]
+    fn message_stays_within_telegram_text_limit() {
+        let mut entry = entry();
+        entry.title = "x".repeat(5_000);
+        let message = build_message(
+            &entry,
+            &article(&"y".repeat(5_000)),
+            "https://telegra.ph/page",
+        );
+        let tags = regex::Regex::new(r"<[^>]+>").unwrap();
+        let without_tags = tags.replace_all(&message, "");
+        let visible = html_escape::decode_html_entities(&without_tags);
+
+        assert!(visible.chars().count() <= 4_096);
+        assert!(visible.contains('…'));
     }
 
     #[test]
