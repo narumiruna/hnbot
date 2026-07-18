@@ -70,7 +70,7 @@
 - [x] 完成 Python/Rust parity review：settings/CLI/RSS/retry/pacing/prompt/schema/sanitizer/message/Redis/concurrency/failure/cancellation 均由 shared fixtures、兩套 gates與 module tests 對照；刻意差異只有 JSON stdout tracing 取代 Logfire及 Docker-only 發行。
 - [x] 切換 build/deployment code：Rust multi-stage/non-root Dockerfile、原 Compose Redis volume/`serve` command、Rust+Docker CI 與 Rust 文件均已完成；GitHub CI run `29637092472` 已通過 Rust gates、Docker build、Compose config 與 container `serve --help`，Python rollback source依計畫保留至受控部署通過。
 - [ ] 執行受控切換：停止 Python service 後以同一 Redis volume 啟動 Rust image，禁止雙跑；觀察恰好 3 個完成的 feed batches，驗證 process 未退出、batch 不重疊、既有 Redis entries 被略過、每個新成功通知只有一次 send 與對應 Redis key。任一條件失敗即部署前一個 Python image 並保留 Rust code 修正。
-- [ ] 受控切換通過後移除 Python runtime/tooling：刪除 `src/hnbot/`、Python tests/scripts、`pyproject.toml`、`uv.lock` 與 Python CI/publish/bump workflow；將 justfile/pre-commit/Dependabot/README/DESIGN_DOC/AGENTS.md 改成 Cargo + Docker Compose，保留共享 contract fixtures與 RSS sample。驗證 repository 不再引用 Python、uv、PyPI、Logfire 或已刪路徑。
+- [x] 依使用者明確指示移除 Python runtime/tooling（正式受控切換 evidence 仍獨立維持未完成）：已刪除 `src/hnbot/`、Python tests/scripts、`pyproject.toml`、`uv.lock` 與 Python CI/publish/bump workflow；justfile、pre-commit、Dependabot、DESIGN_DOC、AGENTS.md 已改成 Cargo + Docker Compose，README 原已是 Rust-only 而無須修改。共享 contract fixtures與 RSS sample 均保留；active-tree search 無 Python、uv、PyPI、Logfire 或已刪路徑引用。
 - [ ] 執行最終 gate：`cargo fmt --check`、strict clippy、所有 Rust tests、Docker build、Compose config、container CLI smoke、secret scan、`git diff --check` 全部成功；完成計畫 checklist 後移至 `docs/plans/archived/`。
 
 ## Deployment evidence
@@ -78,7 +78,7 @@
 - PR #36 已於 2026-07-18 合併至 `main` (`0af11a2`)；latest CI run `29637612813` 的 Python parity、Rust 與 Docker jobs 全部成功，3 個 review findings 均以 regression tests 修正並 resolve。
 - Docker Desktop 本機驗證已成功：Compose config、fresh image build、container `serve --help`、release binary及 non-root `uid=999(app)`。
 - 使用 Compose 建立隔離 Redis volume，複製既有 69 個 dedupe rows 並預載當下 20 個 feed rows後，Rust container 完成恰好 3 個 sequential batches；logs 顯示 60 次 dedupe skip、0 次新處理、0 errors，SIGTERM 後 exit 0。測試後已停止所有 Compose containers，保留 volume，未觸發外部通知。
-- 上述僅是無副作用 deployment dry-run，不是正式 acceptance：本機原狀態不是既有 Docker volume，且沒有新成功通知可驗證 send-once。正式環境以原 volume 完成同樣 3-batch + 新通知驗收前，受控切換、Python 移除與計畫封存維持未完成。
+- 上述僅是無副作用 deployment dry-run，不是正式 acceptance：本機原狀態不是既有 Docker volume，且沒有新成功通知可驗證 send-once。正式環境仍須以原 volume 完成同樣 3-batch + 新通知驗收；使用者已另行明確要求先移除 Python source，因此移除完成不代表受控切換通過，且本計畫尚不可封存。
 
 ## Test cases and verification scenarios
 
@@ -97,7 +97,7 @@
 - OpenAI Responses 與 Telegraph payload 容易因 SDK 差異出錯；採直接 HTTP、mock request snapshots 與切換前 staging smoke 控制風險。
 - Python/Rust 雙跑可能重複通知；正式環境明確禁止並行，切換時先停 Python。
 - Rust 寫入 Redis 的時機或 key 若改變會破壞 dedupe；沿用原 key/value 並以既有 volume 做受控驗證。
-- 最終刪除 Python 後回復成本提高；只有在 3 個 Rust batches 驗收通過後才移除，且保留前一個 image/commit。
+- 最終刪除 Python 後回復成本提高；使用者已接受在正式 3-batch 驗收前移除，回復來源為切換前 image/commit。
 
 ## Rollback / Recovery
 
@@ -109,8 +109,8 @@
 
 - [x] Rust `hnbot serve` 在 CLI、設定、資料流、retry/pacing、concurrency、failure boundaries、shutdown 與 Redis contract 上達到已記錄的 Python parity，並由共享 fixtures及 Rust tests 證明。
 - [ ] 正式 Compose 已只執行 Rust image，使用原 Redis volume，且受控 3-batch 驗收全部通過並有 deployment evidence。
-- [ ] Repository 已移除 Python、uv、PyPI、Logfire 與其 workflows/config，驗證方式為 repository search、tracked file review 與 Rust-only CI。
+- [x] Repository 已移除 Python、uv、PyPI、Logfire 與其 workflows/config；working-tree artifact scan、active-tree reference search、tracked deletion review與 Rust-only CI workflow 均已驗證。
 - [x] `tracing` stdout 不包含 secrets，且 service/batch/entry/retry/cancellation 事件已由 mock tests與隔離 deployment dry-run logs 驗證。
 - [x] Docker image 以 non-root `uid=999(app)` 執行，`hnbot serve --help` smoke、Compose config 與隔離 service startup 均通過。
-- [x] Cargo format、strict clippy、全部 tests、Docker build、pre-commit 與 GitHub CI 全部通過（pre-removal gate；移除 Python 後須再跑一次 final gate）。
+- [ ] Post-removal local Cargo format、strict clippy、全部 tests、Docker build、Compose config、container CLI smoke、pre-commit、secret scan 與 diff check 已通過；目前 removal diff 的 GitHub CI 尚待 commit/push 後執行。
 - [ ] 文件只描述 Rust + Docker Compose 的現行操作，且完成計畫已封存至 `docs/plans/archived/2026-07-18_rust-rewrite-plan.md`。

@@ -228,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn defaults_match_python_contract() {
+    fn defaults_match_runtime_contract() {
         let settings = Settings::from_map(&required_values()).unwrap();
 
         assert_eq!(settings.openai_model, "gpt-5-mini");
