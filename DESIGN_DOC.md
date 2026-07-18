@@ -60,7 +60,7 @@ The service processes one feed batch immediately. Batches never overlap; the con
 - UTC publication timestamp
 - optional points and comment count
 
-Feed entries are reversed before processing to preserve the Python runtime's ordering contract.
+Feed entries are reversed before processing so qualifying stories are handled oldest-first.
 
 ### Article
 
@@ -129,7 +129,7 @@ Data sent externally:
 
 Rust tests cover settings, CLI, RSS parsing, Algolia discussion rendering/routing, retry/cooldown, pacing, timeout separation and diagnostics, Redis authentication propagation, content conversion, Unicode chunking, structured OpenAI requests, Telegraph sanitization, Telegram payloads, dedupe ordering, polling cancellation, and a fully mocked end-to-end service flow.
 
-Language-neutral fixtures under `tests/contracts/` are consumed by both Python and Rust during migration. External adapters use Wiremock; CI does not call live services or require secrets.
+Contract fixtures under `tests/contracts/` are consumed by the Rust integration tests. External adapters use Wiremock; CI does not call live services or require secrets.
 
 CI runs:
 
@@ -141,6 +141,6 @@ docker build --tag hnbot:test .
 docker run --rm hnbot:test serve --help
 ```
 
-## Migration status
+## Runtime status
 
-The Dockerfile and Compose runtime target Rust. The legacy Python source remains temporarily as rollback material until the controlled three-batch production acceptance is recorded. Python and Rust must never run concurrently against the production Telegram, Telegraph, and Redis configuration.
+The repository, Dockerfile, CI, and Compose runtime target Rust. Recovery of the pre-rewrite implementation, if needed, uses Git history rather than a second in-tree runtime.

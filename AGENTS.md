@@ -5,8 +5,7 @@
 - The production Rust binary is defined by root `Cargo.toml`; Rust modules live in `src/*.rs`.
 - `src/main.rs` wires configuration, adapters, tracing, and the `hnbot` CLI.
 - Rust integration tests live in `tests/*.rs`; shared fixtures are under `tests/contracts/` and `tests/data/`.
-- `src/hnbot/` and Python tests are temporary rollback/parity sources during the Rust cutover and are not the production container runtime.
-- CI and release automation live in `.github/workflows/`.
+- CI automation lives in `.github/workflows/`.
 - Configuration placeholders belong in `.env.example`; secrets stay in `.env` only.
 
 ## Build, Test, and Development Commands
@@ -25,14 +24,13 @@
 - Keep modules single-purpose and use explicit error types at adapter boundaries.
 - Keep external I/O behind traits so tests remain deterministic and offline.
 - Preserve the existing Redis key/value contract and write only after Telegram succeeds.
-- Never run Python and Rust simultaneously against production side-effect services.
 - Source files exceeding 1,000 lines must be decomposed or carry a documented justification.
 
 ## Testing Guidelines
 
 - Add unit tests next to modules and end-to-end/mock tests under `tests/`.
 - Use Wiremock or fakes for HNRSS, OpenAI, Telegraph, Telegram, and Redis behavior; CI must not need network services or secrets.
-- Update shared contract fixtures when intentionally changing cross-runtime behavior.
+- Update shared contract fixtures when intentionally changing externally visible behavior.
 - Cover success, retry exhaustion, validation boundaries, dedupe ordering, cancellation, and partial failures.
 
 ## Commit & Pull Request Guidelines
