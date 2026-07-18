@@ -193,7 +193,8 @@ async def test_process_entry_skips_invalid_prompt_error(monkeypatch) -> None:
         await _close_app_client(app)
 
 
-def test_run_continues_and_marks_only_success(monkeypatch) -> None:
+@pytest.mark.anyio
+async def test_feed_batch_continues_and_marks_only_success(monkeypatch) -> None:
     app = App(_settings())
     fake_redis = FakeRedis()
     app.redis_client = fake_redis
@@ -212,13 +213,17 @@ def test_run_continues_and_marks_only_success(monkeypatch) -> None:
     monkeypatch.setattr("hnbot.app.get_hn_feed", fake_get_hn_feed)
     monkeypatch.setattr(app, "_process_entry_pipeline", fake_process_entry_pipeline)
 
-    app.run()
+    try:
+        await app._run_feed_batch()
+    finally:
+        await app._close_clients()
 
     assert f"hnbot:entry:{entry_one.id}" not in fake_redis._data
     assert fake_redis._data[f"hnbot:entry:{entry_two.id}"] == entry_two.comment_url
 
 
-def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -> None:
+@pytest.mark.anyio
+async def test_feed_batch_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -> None:
     app = App(
         _settings(
             comments_fetch_concurrency=1,
@@ -260,7 +265,10 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
     monkeypatch.setattr("hnbot.app.generate_article", fake_generate_article)
     monkeypatch.setattr("hnbot.app.send_message", fake_send_message)
 
-    app.run()
+    try:
+        await app._run_feed_batch()
+    finally:
+        await app._close_clients()
 
     assert fetch_active["max"] == 1
     assert send_order != ["201", "202", "203"]

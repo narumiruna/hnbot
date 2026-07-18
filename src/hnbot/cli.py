@@ -1,4 +1,3 @@
-import logging
 from typing import Annotated
 
 import typer
@@ -9,10 +8,7 @@ from hnbot.app import App
 from hnbot.settings import get_settings
 from hnbot.utils import configure_logfire
 
-logger = logging.getLogger(__name__)
-
-
-app = typer.Typer(invoke_without_command=True, no_args_is_help=False)
+app = typer.Typer(no_args_is_help=True)
 
 
 def _create_app() -> App:
@@ -28,17 +24,9 @@ def _create_app() -> App:
     return App(settings)
 
 
-@app.callback(invoke_without_command=True)
-def cli(ctx: typer.Context) -> None:
-    """Run one batch by default, or select a long-running command."""
-    if ctx.invoked_subcommand is None:
-        _create_app().run()
-
-
-@app.command()
-def main() -> None:
-    """Process one feed batch and exit."""
-    _create_app().run()
+@app.callback()
+def cli() -> None:
+    """Run the Hacker News summary service."""
 
 
 @app.command()

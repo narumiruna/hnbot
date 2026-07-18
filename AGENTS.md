@@ -15,7 +15,7 @@
 - `just lint` runs `uv run ruff check --fix`.
 - `just type` runs `uv run ty check`.
 - `just test` runs `uv run pytest -v -s --cov=src tests`.
-- `uv run hnbot main` starts the CLI command locally.
+- `uv run hnbot serve` starts the polling service locally.
 
 ## Coding Style & Naming Conventions
 - Target Python 3.12+ and keep code under Ruff’s `line-length = 120`.
