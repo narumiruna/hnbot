@@ -46,6 +46,34 @@ def test_settings_async_concurrency_defaults() -> None:
     assert settings.article_pipeline_concurrency == 3
 
 
+def test_settings_comment_fetch_pacing_defaults() -> None:
+    settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id"})
+
+    assert settings.comments_fetch_min_interval_seconds == 2.0
+    assert settings.comments_fetch_429_cooldown_seconds == 30.0
+
+
+def test_settings_comment_fetch_pacing_must_be_finite_and_non_negative() -> None:
+    for invalid_duration in (-1.0, float("nan"), float("inf")):
+        with pytest.raises(ValidationError):
+            Settings.model_validate(
+                {
+                    "bot_token": "bot-token",
+                    "chat_id": "chat-id",
+                    "comments_fetch_min_interval_seconds": invalid_duration,
+                }
+            )
+
+        with pytest.raises(ValidationError):
+            Settings.model_validate(
+                {
+                    "bot_token": "bot-token",
+                    "chat_id": "chat-id",
+                    "comments_fetch_429_cooldown_seconds": invalid_duration,
+                }
+            )
+
+
 def test_settings_async_concurrency_must_be_positive() -> None:
     with pytest.raises(ValidationError):
         Settings.model_validate(

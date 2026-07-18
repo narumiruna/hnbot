@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = 10.0
     http_user_agent: str = "hnbot/0.0.0"
     comments_fetch_concurrency: int = Field(default=1, ge=1)
+    comments_fetch_min_interval_seconds: float = Field(default=2.0, ge=0.0, allow_inf_nan=False)
+    comments_fetch_429_cooldown_seconds: float = Field(default=30.0, ge=0.0, allow_inf_nan=False)
     article_pipeline_concurrency: int = Field(default=3, ge=1)
     chunk_size: int = Field(default=200_000, ge=1)
 
