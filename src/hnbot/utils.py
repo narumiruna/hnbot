@@ -1,4 +1,3 @@
-import charset_normalizer
 import logfire
 from loguru import logger
 from markdownify import markdownify
@@ -10,18 +9,15 @@ def normalize_whitespace(text: str) -> str:
     return "\n".join(stripped for line in text.splitlines() if (stripped := line.strip()))
 
 
-def html_to_markdown(content: str | bytes) -> str:
+def html_to_markdown(content: str) -> str:
     """Convert HTML content to markdown format.
 
     Args:
-        content: HTML content as string or bytes
+        content: HTML content as a string
 
     Returns:
         Converted markdown text with normalized whitespace
     """
-    if isinstance(content, bytes):
-        content = str(charset_normalizer.from_bytes(content).best())
-
     md = markdownify(content, strip=["a", "img"])
     return normalize_whitespace(md)
 
