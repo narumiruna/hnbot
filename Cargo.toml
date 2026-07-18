@@ -17,7 +17,7 @@ html2md            = "0.2"
 html5ever          = "0.35"
 httpdate           = "1.0"
 markup5ever_rcdom  = "0.35"
-rand               = "0.9"
+rand               = "0.10"
 redis              = { version = "0.32", features = [
   "connection-manager",
   "tokio-comp"
