@@ -8,27 +8,32 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_PASSWORD: ""
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - default
+      - redis-internal
     restart: unless-stopped
 
   redis:
     image: redis:8-alpine
-    command:
-      - sh
-      - -ec
-      - exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
-    env_file:
-      - .env
+    command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
-      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${REDIS_PASSWORD}\" redis-cli ping | grep -qx PONG"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - redis-internal
     restart: unless-stopped
     volumes:
       - redis-data:/data
+
+networks:
+  redis-internal:
+    internal: true
 
 volumes:
   redis-data:

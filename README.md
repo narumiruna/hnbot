@@ -54,7 +54,7 @@ Prerequisites:
 
 ```sh
 cp .env.example .env
-# Fill in OPENAI_API_KEY, BOT_TOKEN, CHAT_ID, and a strong REDIS_PASSWORD.
+# Fill in OPENAI_API_KEY, BOT_TOKEN, and CHAT_ID.
 
 docker compose up --build -d
 docker compose logs -f hnbot
@@ -96,7 +96,6 @@ Settings are read from environment variables and an optional `.env` file. Unknow
 | `OPENAI_API_KEY` | OpenAI API key |
 | `BOT_TOKEN` | Telegram bot token |
 | `CHAT_ID` | Telegram destination chat ID |
-| `REDIS_PASSWORD` | Redis password; required by the Compose deployment |
 
 ### Optional
 
@@ -109,6 +108,7 @@ Settings are read from environment variables and an optional `.env` file. Unknow
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database |
+| `REDIS_PASSWORD` | unset | Password for an authenticated external Redis instance; Compose overrides this for Redis on its dedicated internal network |
 | `HTTP_TIMEOUT_SECONDS` | `10.0` | Timeout for non-OpenAI HTTP requests |
 | `HTTP_USER_AGENT` | `hnbot/0.0.0` | HTTP User-Agent |
 | `COMMENTS_FETCH_CONCURRENCY` | `1` | Maximum concurrent HN comment fetches |

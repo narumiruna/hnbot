@@ -117,7 +117,7 @@ Failure behavior:
 
 `tracing-subscriber` writes JSON to stdout and respects `RUST_LOG`. Settings use a custom redacted `Debug` implementation; OpenAI and Telegram credentials are never logged.
 
-The service runs as a non-root user in the final container. Secrets are supplied through `.env`/environment variables and must not be committed. Compose requires `REDIS_PASSWORD`; the same value authenticates the app connection and Redis health check, while Redis remains unexposed from the host network.
+The service runs as a non-root user in the final container. Secrets are supplied through `.env`/environment variables and must not be committed. Compose runs Redis without authentication on a dedicated internal network shared only with hnbot and does not expose Redis to the host network; external Redis deployments can still use `REDIS_PASSWORD`.
 
 Data sent externally:
 
