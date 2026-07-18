@@ -27,6 +27,7 @@ class FakeArticle:
 class FakeRedis:
     def __init__(self) -> None:
         self._data: dict[str, str] = {}
+        self.close_calls = 0
 
     async def exists(self, key: str) -> bool:
         return key in self._data
@@ -35,7 +36,7 @@ class FakeRedis:
         self._data[key] = value
 
     async def aclose(self) -> None:
-        pass
+        self.close_calls += 1
 
 
 def _entry(entry_id: str) -> HNEntry:
@@ -219,6 +220,87 @@ def test_run_allows_parallel_generation_with_serial_comment_fetch(monkeypatch) -
 
     assert fetch_active["max"] == 1
     assert send_order != ["201", "202", "203"]
+
+
+@pytest.mark.anyio
+async def test_process_feed_entries_waits_for_siblings_before_raising(monkeypatch) -> None:
+    app = App(_settings(batch_sleep_seconds=0.0))
+    app.redis_client = FakeRedis()
+    completed_entries: list[str] = []
+
+    async def fake_process_entry(entry: HNEntry, **_kwargs: object) -> bool:
+        if entry.id == "301":
+            raise RuntimeError("entry failed")
+        await asyncio.sleep(0.01)
+        completed_entries.append(entry.id)
+        return True
+
+    monkeypatch.setattr(app, "_process_feed_entry", fake_process_entry)
+
+    try:
+        with pytest.raises(ExceptionGroup) as exc_info:
+            await app._process_feed_entries([_entry("301"), _entry("302")], "HN")
+    finally:
+        await _close_app_client(app)
+
+    assert completed_entries == ["302"]
+    assert len(exc_info.value.exceptions) == 1
+
+
+@pytest.mark.anyio
+async def test_serve_loop_polls_immediately_and_continues_after_batch_failure(monkeypatch) -> None:
+    app = App(_settings())
+    app.redis_client = FakeRedis()
+    events: list[str] = []
+    batch_calls = 0
+
+    async def fake_run_feed_batch() -> None:
+        nonlocal batch_calls
+        batch_calls += 1
+        events.append(f"batch-{batch_calls}")
+        if batch_calls == 1:
+            raise RuntimeError("temporary batch failure")
+
+    async def fake_sleep(seconds: float) -> None:
+        events.append(f"sleep-{seconds}")
+        if batch_calls == 2:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(app, "_run_feed_batch", fake_run_feed_batch)
+
+    try:
+        with pytest.raises(asyncio.CancelledError):
+            await app._serve_loop(5.0, sleep=fake_sleep)
+    finally:
+        await _close_app_client(app)
+
+    assert events == ["batch-1", "sleep-5.0", "batch-2", "sleep-5.0"]
+
+
+@pytest.mark.anyio
+async def test_serve_async_closes_clients_when_cancelled(monkeypatch) -> None:
+    app = App(_settings())
+    fake_redis = FakeRedis()
+    app.redis_client = fake_redis
+    http_close_calls = 0
+    original_http_close = app.http_client.aclose
+
+    async def fake_http_close() -> None:
+        nonlocal http_close_calls
+        http_close_calls += 1
+        await original_http_close()
+
+    async def fake_serve_loop(_poll_interval_seconds: float) -> None:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(app.http_client, "aclose", fake_http_close)
+    monkeypatch.setattr(app, "_serve_loop", fake_serve_loop)
+
+    with pytest.raises(asyncio.CancelledError):
+        await app._serve_async(5.0)
+
+    assert http_close_calls == 1
+    assert fake_redis.close_calls == 1
 
 
 def test_notifier_build_message_escapes_text_and_links() -> None:
