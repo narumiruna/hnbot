@@ -35,7 +35,7 @@ impl ArticleClient for OpenAiClient {
         content: &str,
         instructions: &str,
     ) -> Result<Article, ArticleError> {
-        let schema = schema_for!(Article);
+        let schema = strict_article_schema();
         let payload = json!({
             "model": self.model,
             "input": content,
@@ -67,6 +67,37 @@ impl ArticleClient for OpenAiClient {
             ArticleError::Generation("OpenAI response has no output text".to_owned())
         })?;
         serde_json::from_str(output).map_err(|error| ArticleError::Generation(error.to_string()))
+    }
+}
+
+fn strict_article_schema() -> Value {
+    let mut schema = serde_json::to_value(schema_for!(Article))
+        .expect("the generated article schema is serializable");
+    enforce_closed_objects(&mut schema);
+    if let Value::Object(object) = &mut schema {
+        object.remove("$schema");
+    }
+    schema
+}
+
+fn enforce_closed_objects(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            let is_object_schema = object.get("type").and_then(Value::as_str) == Some("object")
+                || object.contains_key("properties");
+            if is_object_schema {
+                object.insert("additionalProperties".to_owned(), Value::Bool(false));
+            }
+            for child in object.values_mut() {
+                enforce_closed_objects(child);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                enforce_closed_objects(item);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -136,6 +167,13 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(article.title, "title");
+
+        let requests = server.received_requests().await.unwrap();
+        let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
+        let schema = &body["text"]["format"]["schema"];
+        assert!(schema.get("$schema").is_none());
+        assert_eq!(schema["additionalProperties"], false);
+        assert_eq!(schema["$defs"]["Section"]["additionalProperties"], false);
     }
 
     #[tokio::test]

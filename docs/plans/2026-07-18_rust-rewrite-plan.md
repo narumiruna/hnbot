@@ -58,7 +58,7 @@
 ## Plan
 
 - [x] 建立並保存本計畫，記錄 Python baseline contract 與目前 `just all`、CLI help、Docker Compose config 結果；Python baseline `just all`（58 tests）與兩個 CLI help 成功，Compose file 未改動且後續由 GitHub CI run `29637092472` 的 `docker compose config --quiet` 補驗成功。
-- [x] 新增 root `Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Rust modules 與 Rust CI job；edition 2024/MSRV 1.88 已固定，Rust format、strict clippy、46 tests 全部通過，`just python-all` 亦以 59 tests 通過。
+- [x] 新增 root `Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Rust modules 與 Rust CI job；edition 2024/MSRV 1.88 已固定，Rust format、strict clippy、48 tests 全部通過，`just python-all` 亦以 59 tests 通過。
 - [x] 實作 typed settings、domain models 與 `clap` CLI contract；所有既有 defaults/validation、`.env`、poll override、裸命令 help 與 `main` rejection 已由 config/CLI unit tests、3 個 `assert_cmd` tests 及 live help smoke 證明。
 - [x] 建立 `tests/contracts/parity.json` 與既有 RSS XML 共用 fixtures；Python/Rust 同時驗證 retry-after、HTML-to-Markdown、article rendering、Telegraph sanitizer、Telegram escaping 與 RSS contract，雙方 fixture tests 通過。
 - [x] 實作共用 HTTP retry、數字/HTTP-date `Retry-After`、exponential jitter、global pacer/cooldown、RSS 與 comment fetch；Wiremock、paused Tokio time 與真實 RSS fixture 覆蓋 429/503、三次 exhaustion、spacing、malformed feed、entry order 與 metadata。

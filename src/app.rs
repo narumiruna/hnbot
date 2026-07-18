@@ -237,7 +237,15 @@ impl App {
                 tracing::info!("service cancellation requested");
                 return Ok(());
             }
-            if let Err(error) = self.run_feed_batch().await {
+            let batch_result = tokio::select! {
+                biased;
+                () = cancellation.cancelled() => {
+                    tracing::info!("service stopped during feed batch");
+                    return Ok(());
+                }
+                result = self.run_feed_batch() => result,
+            };
+            if let Err(error) = batch_result {
                 tracing::error!(error = %error, "feed batch failed");
             } else {
                 tracing::info!("feed batch completed");
@@ -381,9 +389,10 @@ async fn shutdown_signal() {
 mod tests {
     use std::collections::{HashMap, HashSet};
     use std::sync::Mutex;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use chrono::Utc;
+    use tokio::sync::Notify;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -404,6 +413,28 @@ mod tests {
                 title: "HN".to_owned(),
                 entries: self.entries.clone(),
             })
+        }
+    }
+
+    struct BlockingFeed {
+        started: Arc<Notify>,
+        cancelled: Arc<AtomicBool>,
+    }
+
+    struct CancellationGuard(Arc<AtomicBool>);
+
+    impl Drop for CancellationGuard {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[async_trait]
+    impl FeedSource for BlockingFeed {
+        async fn fetch(&self) -> Result<HnFeed, FeedError> {
+            let _guard = CancellationGuard(self.cancelled.clone());
+            self.started.notify_one();
+            std::future::pending().await
         }
     }
 
@@ -646,6 +677,42 @@ mod tests {
 
         assert!(app.run_feed_batch().await.is_err());
         assert!(store.values.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn cancellation_interrupts_an_in_flight_batch() {
+        let started = Arc::new(Notify::new());
+        let batch_cancelled = Arc::new(AtomicBool::new(false));
+        let app = Arc::new(App::with_components(
+            settings(),
+            Arc::new(BlockingFeed {
+                started: started.clone(),
+                cancelled: batch_cancelled.clone(),
+            }),
+            Arc::new(FakeComments {
+                failures: HashSet::new(),
+            }),
+            Arc::new(FakePipeline),
+            Arc::new(FakeNotifier::default()),
+            Arc::new(FakeStore::default()),
+        ));
+        let token = CancellationToken::new();
+        let mut running = tokio::spawn({
+            let app = app.clone();
+            let token = token.clone();
+            async move { app.serve_with_token(5.0, token).await }
+        });
+        started.notified().await;
+
+        token.cancel();
+        match tokio::time::timeout(Duration::from_millis(100), &mut running).await {
+            Ok(result) => result.unwrap().unwrap(),
+            Err(_) => {
+                running.abort();
+                panic!("service did not cancel its in-flight batch");
+            }
+        }
+        assert!(batch_cancelled.load(Ordering::SeqCst));
     }
 
     #[tokio::test(start_paused = true)]

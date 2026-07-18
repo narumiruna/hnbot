@@ -30,16 +30,20 @@ pub fn html_to_markdown(content: &str) -> String {
 }
 
 pub fn chunk_chars(content: &str, chunk_size: usize) -> Vec<String> {
+    assert!(chunk_size > 0, "chunk size must be positive");
     if content.is_empty() {
         return vec![String::new()];
     }
     let mut chunks = Vec::new();
     let mut current = String::new();
+    let mut current_len = 0;
     for character in content.chars() {
-        if current.chars().count() == chunk_size {
+        if current_len == chunk_size {
             chunks.push(std::mem::take(&mut current));
+            current_len = 0;
         }
         current.push(character);
+        current_len += 1;
     }
     if !current.is_empty() {
         chunks.push(current);
@@ -69,5 +73,11 @@ mod tests {
     #[test]
     fn chunks_at_unicode_character_boundaries() {
         assert_eq!(chunk_chars("a台😀b", 2), vec!["a台", "😀b"]);
+    }
+
+    #[test]
+    #[should_panic(expected = "chunk size must be positive")]
+    fn rejects_zero_chunk_size() {
+        chunk_chars("content", 0);
     }
 }
