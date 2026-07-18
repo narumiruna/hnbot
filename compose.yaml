@@ -12,9 +12,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    networks:
-      - default
-      - redis-internal
     restart: unless-stopped
 
   redis:
@@ -25,15 +22,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    networks:
-      - redis-internal
     restart: unless-stopped
     volumes:
       - redis-data:/data
-
-networks:
-  redis-internal:
-    internal: true
 
 volumes:
   redis-data:
