@@ -4,7 +4,7 @@ use schemars::schema_for;
 use serde_json::{Value, json};
 
 use crate::article::{Article, ArticleClient, ArticleError};
-use crate::http::{HttpFailure, response_bytes};
+use crate::http::{HttpFailure, reqwest_error_message, response_bytes};
 
 pub struct OpenAiClient {
     client: Client,
@@ -56,7 +56,7 @@ impl ArticleClient for OpenAiClient {
             .json(&payload)
             .send()
             .await
-            .map_err(|error| ArticleError::Generation(error.to_string()))?;
+            .map_err(|error| ArticleError::Generation(reqwest_error_message(&error)))?;
         let status = response.status();
         let bytes = response_bytes(response)
             .await
@@ -174,6 +174,34 @@ mod tests {
         assert!(schema.get("$schema").is_none());
         assert_eq!(schema["additionalProperties"], false);
         assert_eq!(schema["$defs"]["Section"]["additionalProperties"], false);
+    }
+
+    #[tokio::test]
+    async fn transport_error_includes_timeout_cause() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/responses"))
+            .respond_with(
+                ResponseTemplate::new(200).set_delay(std::time::Duration::from_millis(100)),
+            )
+            .mount(&server)
+            .await;
+        let client = OpenAiClient::new(
+            Client::builder()
+                .timeout(std::time::Duration::from_millis(10))
+                .build()
+                .unwrap(),
+            server.uri(),
+            "secret".to_owned(),
+            "model".to_owned(),
+        );
+
+        let error = client
+            .generate_once("content", "instructions")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("timed out"), "unexpected error: {error}");
     }
 
     #[tokio::test]

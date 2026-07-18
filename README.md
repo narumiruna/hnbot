@@ -5,6 +5,7 @@ A Rust service that monitors [Hacker News](https://news.ycombinator.com/), summa
 ## Features
 
 - **RSS feed monitoring** — fetches stories from [hnrss.org](https://hnrss.org/) with a configurable points threshold
+- **Discussion retrieval** — fetches each complete comment tree in one request from the HN Algolia API instead of rate-limited HN page scraping
 - **AI summaries** — requests strict structured articles from the OpenAI Responses API
 - **Telegraph publishing** — creates long-form public notes
 - **Telegram notifications** — sends escaped HTML messages with source, discussion, and note links
@@ -26,7 +27,7 @@ hnrss.org RSS feed
   Check Redis dedupe state
         │
         ▼
-  Fetch HN comments ──► HTML → Markdown
+  Fetch Algolia item ──► comment HTML → Markdown
         │
         ▼
   OpenAI structured article
@@ -102,15 +103,19 @@ Settings are read from environment variables and an optional `.env` file. Unknow
 |---|---:|---|
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible API base URL |
 | `OPENAI_MODEL` | `gpt-5-mini` | Responses API model |
+| `OPENAI_TIMEOUT_SECONDS` | `120.0` | OpenAI generation request timeout |
 | `ARTICLE_LANG` | `Traditional Chinese (台灣正體中文)` | Generated article language |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database |
-| `HTTP_TIMEOUT_SECONDS` | `10.0` | HTTP timeout |
+| `REDIS_PASSWORD` | unset | Password for an authenticated external Redis instance; Compose overrides this for its private Redis service |
+| `HTTP_TIMEOUT_SECONDS` | `10.0` | General timeout for HNRSS, Telegraph, and Telegram requests |
 | `HTTP_USER_AGENT` | `hnbot/0.0.0` | HTTP User-Agent |
 | `COMMENTS_FETCH_CONCURRENCY` | `1` | Maximum concurrent HN comment fetches |
+| `COMMENTS_FETCH_TIMEOUT_SECONDS` | `60.0` | HN comment API request timeout |
 | `COMMENTS_FETCH_MIN_INTERVAL_SECONDS` | `2.0` | Minimum delay between HN request starts |
-| `COMMENTS_FETCH_429_COOLDOWN_SECONDS` | `30.0` | Cooldown after HN 429 without `Retry-After` |
+| `COMMENTS_FETCH_429_COOLDOWN_SECONDS` | `30.0` | Cooldown after comment API 429 without `Retry-After` |
+| `HNBOT_COMMENTS_API_BASE_URL` | `https://hn.algolia.com/api/v1/items` | HN Algolia item API base URL |
 | `ARTICLE_PIPELINE_CONCURRENCY` | `3` | Maximum concurrent generation/publishing pipelines |
 | `CHUNK_SIZE` | `200000` | Unicode characters per generation chunk |
 | `FEED_POINTS` | `200` | Minimum HN points threshold |

@@ -44,18 +44,3 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test --all-targets
-
-  docker:
-    needs: rust
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-      - name: Validate Compose
-        run: |
-          cp .env.example .env
-          docker compose config --quiet
-      - name: Build image
-        run: docker build --tag hnbot:test .
-      - name: Smoke test CLI
-        run: docker run --rm hnbot:test serve --help

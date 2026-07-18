@@ -4,14 +4,18 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures::future::join_all;
 use reqwest::Client;
+use serde::Deserialize;
 use thiserror::Error;
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
+use url::Url;
 
 use crate::article::{Article, ArticleError, generate_article};
 use crate::config::Settings;
 use crate::content::html_to_markdown;
-use crate::http::{HttpFailure, RequestPacer, response_bytes, retry_transient};
+use crate::http::{
+    HttpFailure, RequestPacer, reqwest_error_message, response_bytes, retry_transient,
+};
 use crate::openai::OpenAiClient;
 use crate::rss::{FeedError, FeedSource, HnEntry, HnFeedSource};
 use crate::store::{DedupeStore, RedisStore, StoreError};
@@ -53,14 +57,21 @@ pub trait ArticleProcessor: Send + Sync {
 
 pub struct HnCommentSource {
     client: Client,
+    base_url: String,
     pacer: RequestPacer,
     cooldown: Duration,
 }
 
 impl HnCommentSource {
-    pub fn new(client: Client, min_interval: Duration, cooldown: Duration) -> Self {
+    pub fn new(
+        client: Client,
+        base_url: String,
+        min_interval: Duration,
+        cooldown: Duration,
+    ) -> Self {
         Self {
             client,
+            base_url,
             pacer: RequestPacer::new(min_interval),
             cooldown,
         }
@@ -71,7 +82,7 @@ impl HnCommentSource {
 impl CommentSource for HnCommentSource {
     async fn fetch(&self, entry: &HnEntry) -> Result<String, HttpFailure> {
         let client = self.client.clone();
-        let url = entry.comment_url.clone();
+        let url = comment_api_url(&self.base_url, &entry.id)?;
         let pacer = self.pacer.clone();
         let cooldown = self.cooldown;
         let bytes = retry_transient(|| {
@@ -84,7 +95,7 @@ impl CommentSource for HnCommentSource {
                     .get(url)
                     .send()
                     .await
-                    .map_err(|error| HttpFailure::Transport(error.to_string()))?;
+                    .map_err(|error| HttpFailure::Transport(reqwest_error_message(&error)))?;
                 match response_bytes(response).await {
                     Err(error) if error.status() == Some(429) => {
                         let wait = error
@@ -98,8 +109,87 @@ impl CommentSource for HnCommentSource {
             }
         })
         .await?;
-        Ok(html_to_markdown(&String::from_utf8_lossy(&bytes)))
+        render_comment_api_payload(&bytes)
     }
+}
+
+#[derive(Deserialize)]
+struct CommentApiItem {
+    title: Option<String>,
+    text: Option<String>,
+    children: Option<Vec<CommentApiComment>>,
+}
+
+#[derive(Deserialize)]
+struct CommentApiComment {
+    author: Option<String>,
+    text: Option<String>,
+    children: Option<Vec<CommentApiComment>>,
+}
+
+fn comment_api_url(base_url: &str, entry_id: &str) -> Result<Url, HttpFailure> {
+    let mut url = Url::parse(base_url).map_err(|error| {
+        HttpFailure::Transport(format!("invalid HN comments API base URL: {error}"))
+    })?;
+    url.set_query(None);
+    url.set_fragment(None);
+    url.path_segments_mut()
+        .map_err(|_| HttpFailure::Transport("HN comments API URL cannot be a base".to_owned()))?
+        .pop_if_empty()
+        .push(entry_id);
+    Ok(url)
+}
+
+fn render_comment_api_payload(bytes: &[u8]) -> Result<String, HttpFailure> {
+    let item: CommentApiItem = serde_json::from_slice(bytes).map_err(|error| {
+        HttpFailure::Transport(format!("HN comments API response parse failed: {error}"))
+    })?;
+    let mut sections = Vec::new();
+    if let Some(title) = normalized_markdown(item.title.as_deref()) {
+        sections.push(format!("# {title}"));
+    }
+    if let Some(text) = normalized_markdown(item.text.as_deref()) {
+        sections.push(text);
+    }
+
+    let mut stack = item
+        .children
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .rev()
+        .map(|comment| (comment, 2_usize))
+        .collect::<Vec<_>>();
+    while let Some((comment, depth)) = stack.pop() {
+        let child_depth = if let Some(text) = normalized_markdown(comment.text.as_deref()) {
+            let author = comment
+                .author
+                .as_deref()
+                .filter(|author| !author.trim().is_empty())
+                .map(|author| author.split_whitespace().collect::<Vec<_>>().join(" "))
+                .unwrap_or_else(|| "[deleted]".to_owned());
+            sections.push(format!("{} {author}\n\n{text}", "#".repeat(depth.min(6))));
+            depth + 1
+        } else {
+            depth
+        };
+        if let Some(children) = &comment.children {
+            stack.extend(children.iter().rev().map(|child| (child, child_depth)));
+        }
+    }
+
+    if sections.is_empty() {
+        return Err(HttpFailure::Transport(
+            "HN comments API response contained no discussion content".to_owned(),
+        ));
+    }
+    Ok(sections.join("\n\n"))
+}
+
+fn normalized_markdown(html: Option<&str>) -> Option<String> {
+    html.map(html_to_markdown)
+        .map(|markdown| markdown.trim().to_owned())
+        .filter(|markdown| !markdown.is_empty())
 }
 
 pub struct ProductionArticleProcessor {
@@ -150,23 +240,20 @@ pub struct App {
 
 impl App {
     pub async fn production(settings: Settings) -> Result<Self, AppError> {
-        let client = Client::builder()
-            .timeout(Duration::from_secs_f64(settings.http_timeout_seconds))
-            .user_agent(&settings.http_user_agent)
-            .build()
-            .map_err(|error| AppError::Client(error.to_string()))?;
+        let (client, comments_http_client, openai_http_client) = build_http_clients(&settings)?;
         let feed = Arc::new(HnFeedSource::new(
             client.clone(),
             &settings.feed_base_url,
             settings.feed_points,
         ));
         let comments = Arc::new(HnCommentSource::new(
-            client.clone(),
+            comments_http_client,
+            settings.comments_api_base_url.clone(),
             Duration::from_secs_f64(settings.comments_fetch_min_interval_seconds),
             Duration::from_secs_f64(settings.comments_fetch_429_cooldown_seconds),
         ));
         let article_client = OpenAiClient::new(
-            client.clone(),
+            openai_http_client,
             settings.openai_base_url.clone(),
             settings.openai_api_key.clone(),
             settings.openai_model.clone(),
@@ -184,8 +271,13 @@ impl App {
             settings.chat_id.clone(),
         ));
         let store = Arc::new(
-            RedisStore::connect(&settings.redis_host, settings.redis_port, settings.redis_db)
-                .await?,
+            RedisStore::connect(
+                &settings.redis_host,
+                settings.redis_port,
+                settings.redis_db,
+                settings.redis_password.as_deref(),
+            )
+            .await?,
         );
         Ok(Self::with_components(
             settings,
@@ -357,6 +449,21 @@ impl App {
         tracing::info!(entry_id = %entry.id, "entry processed");
         Ok(true)
     }
+}
+
+fn build_http_clients(settings: &Settings) -> Result<(Client, Client, Client), AppError> {
+    let build = |timeout_seconds| {
+        Client::builder()
+            .timeout(Duration::from_secs_f64(timeout_seconds))
+            .user_agent(&settings.http_user_agent)
+            .build()
+            .map_err(|error| AppError::Client(error.to_string()))
+    };
+    Ok((
+        build(settings.http_timeout_seconds)?,
+        build(settings.comments_fetch_timeout_seconds)?,
+        build(settings.openai_timeout_seconds)?,
+    ))
 }
 
 fn settings_feed(feed: Arc<HnFeedSource>) -> Arc<dyn FeedSource> {
@@ -602,23 +709,90 @@ mod tests {
         )
     }
 
+    #[test]
+    fn comment_api_payload_renders_story_and_nested_discussion() {
+        let content = render_comment_api_payload(
+            br#"{
+                "title":"Story title",
+                "text":"<p>Story text</p>",
+                "children":[
+                    {
+                        "author":"alice",
+                        "text":"<p>Top <strong>comment</strong></p>",
+                        "children":[
+                            {"author":"bob","text":"<p>Nested reply</p>","children":[]}
+                        ]
+                    },
+                    {
+                        "author":null,
+                        "text":null,
+                        "children":[
+                            {"author":"carol","text":"<p>Reply to deleted comment</p>","children":[]}
+                        ]
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+
+        assert!(content.contains("# Story title"));
+        assert!(content.contains("Story text"));
+        assert!(content.contains("## alice\n\nTop **comment**"));
+        assert!(content.contains("### bob\n\nNested reply"));
+        assert!(content.contains("## carol\n\nReply to deleted comment"));
+        assert!(!content.contains("### carol\n\nReply to deleted comment"));
+    }
+
     #[tokio::test]
-    async fn comment_source_retries_429_three_times() {
+    async fn comment_source_uses_configured_api_and_retries_429_three_times() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/limited"))
+            .and(path("/items/limited"))
             .respond_with(ResponseTemplate::new(429).insert_header("Retry-After", "0"))
             .expect(3)
             .mount(&server)
             .await;
-        let mut limited = entry("limited");
-        limited.comment_url = format!("{}/limited", server.uri());
-        let source = HnCommentSource::new(Client::new(), Duration::ZERO, Duration::ZERO);
+        let source = HnCommentSource::new(
+            Client::new(),
+            format!("{}/items", server.uri()),
+            Duration::ZERO,
+            Duration::ZERO,
+        );
 
         assert_eq!(
-            source.fetch(&limited).await.unwrap_err().status(),
+            source.fetch(&entry("limited")).await.unwrap_err().status(),
             Some(429)
         );
+    }
+
+    #[tokio::test]
+    async fn production_clients_apply_dedicated_request_timeouts() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/slow"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_millis(50)))
+            .expect(3)
+            .mount(&server)
+            .await;
+        let mut settings = settings();
+        settings.http_timeout_seconds = 0.01;
+        settings.comments_fetch_timeout_seconds = 1.0;
+        settings.openai_timeout_seconds = 1.0;
+        let (general_client, comments_client, openai_client) =
+            build_http_clients(&settings).unwrap();
+        let url = format!("{}/slow", server.uri());
+
+        assert!(
+            general_client
+                .get(&url)
+                .send()
+                .await
+                .unwrap_err()
+                .is_timeout()
+        );
+        for client in [comments_client, openai_client] {
+            assert!(client.get(&url).send().await.unwrap().status().is_success());
+        }
     }
 
     #[tokio::test]

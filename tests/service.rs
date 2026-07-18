@@ -48,6 +48,10 @@ fn settings(server: &MockServer) -> Settings {
             "0".to_owned(),
         ),
         ("HNBOT_FEED_BASE_URL".to_owned(), server.uri()),
+        (
+            "HNBOT_COMMENTS_API_BASE_URL".to_owned(),
+            format!("{}/items", server.uri()),
+        ),
         ("HNBOT_TELEGRAPH_BASE_URL".to_owned(), server.uri()),
         ("HNBOT_TELEGRAM_BASE_URL".to_owned(), server.uri()),
     ]))
@@ -73,8 +77,16 @@ async fn mocked_service_runs_full_flow_and_dedupes_second_batch() {
         .mount(&server)
         .await;
     Mock::given(method("GET"))
-        .and(path("/comments"))
-        .respond_with(ResponseTemplate::new(200).set_body_string("<p>useful comments</p>"))
+        .and(path("/items/1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "title": "Story",
+            "text": null,
+            "children": [{
+                "author": "alice",
+                "text": "<p>useful comments</p>",
+                "children": []
+            }]
+        })))
         .expect(1)
         .mount(&server)
         .await;
@@ -121,6 +133,7 @@ async fn mocked_service_runs_full_flow_and_dedupes_second_batch() {
         Arc::new(HnFeedSource::new(client.clone(), &server.uri(), 200)),
         Arc::new(HnCommentSource::new(
             client.clone(),
+            settings.comments_api_base_url.clone(),
             Duration::ZERO,
             Duration::ZERO,
         )),
