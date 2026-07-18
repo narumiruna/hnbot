@@ -20,7 +20,7 @@ Docker Compose builds a Rust binary in a pinned Rust 1.88 builder and copies it 
 
 - `src/config.rs` — `.env` and environment parsing, defaults, required secrets, and numeric validation
 - `src/cli.rs` — service-only Clap interface
-- `src/http.rs` — transient HTTP retry, `Retry-After`, and global request pacing
+- `src/http.rs` — transient HTTP retry, `Retry-After`, detailed transport errors, and global request pacing
 - `src/rss.rs` — HNRSS retrieval and typed feed parsing
 - `src/content.rs` — HTML-to-Markdown normalization and Unicode-safe chunking
 - `src/article.rs` — article schema, prompt, validation, rendering, and recursive summarization
@@ -38,8 +38,8 @@ flowchart LR
     A[HNRSS feed] --> B[Parse and reverse entries]
     B --> C[Redis exists]
     C -->|seen| D[Skip]
-    C -->|unseen| E[Paced HN comment fetch]
-    E --> F[HTML to Markdown]
+    C -->|unseen| E[Paced Algolia item fetch]
+    E --> F[Comment HTML to Markdown]
     F --> G[Chunk and summarize]
     G --> H[Create Telegraph page]
     H --> I[Build escaped Telegram HTML]
@@ -77,17 +77,17 @@ This schema is unchanged, so existing Compose volumes remain usable without migr
 
 ## External API adapters
 
-All adapters use a shared `reqwest` client with configured timeout and User-Agent.
+All adapters use the configured User-Agent. Non-OpenAI adapters use `HTTP_TIMEOUT_SECONDS`; OpenAI uses its dedicated `OPENAI_TIMEOUT_SECONDS` because generation can legitimately exceed the shorter general I/O timeout.
 
 ### HNRSS and HN comments
 
-HNRSS is fetched from `/newest?points=...`. Feed and comment GETs retry transport failures, HTTP 429, and HTTP 5xx up to three attempts. Numeric and HTTP-date `Retry-After` values are honored.
+HNRSS is fetched from `/newest?points=...`. Each discussion is fetched as one nested item response from `HNBOT_COMMENTS_API_BASE_URL/{entry.id}` and rendered into heading-structured Markdown. This avoids rate-limited `news.ycombinator.com` page scraping and preserves replies beneath deleted comments.
 
-HN comment request starts share a process-wide pacer. A 429 extends the global cooldown using `Retry-After` or `COMMENTS_FETCH_429_COOLDOWN_SECONDS`.
+Feed and comment API GETs retry transport failures, HTTP 429, and HTTP 5xx up to three attempts. Numeric and HTTP-date `Retry-After` values are honored. Comment API request starts share a process-wide pacer, and a 429 extends the global cooldown using `Retry-After` or `COMMENTS_FETCH_429_COOLDOWN_SECONDS`.
 
 ### OpenAI
 
-The adapter posts to `{OPENAI_BASE_URL}/responses` with Bearer authentication, the configured model, unchanged article instructions, and a strict JSON schema under `text.format`. API keys are held in redacted settings and are never included in tracing fields.
+The adapter posts to `{OPENAI_BASE_URL}/responses` with Bearer authentication, the configured model, unchanged article instructions, and a strict JSON schema under `text.format`. It uses the dedicated generation timeout, and transport failures retain their source-chain cause (including timeouts) for diagnosis. API keys are held in redacted settings and are never included in tracing fields.
 
 ### Telegraph
 
@@ -117,7 +117,7 @@ Failure behavior:
 
 `tracing-subscriber` writes JSON to stdout and respects `RUST_LOG`. Settings use a custom redacted `Debug` implementation; OpenAI and Telegram credentials are never logged.
 
-The service runs as a non-root user in the final container. Secrets are supplied through `.env`/environment variables and must not be committed.
+The service runs as a non-root user in the final container. Secrets are supplied through `.env`/environment variables and must not be committed. Compose requires `REDIS_PASSWORD`; the same value authenticates the app connection and Redis health check, while Redis remains unexposed from the host network.
 
 Data sent externally:
 
@@ -127,7 +127,7 @@ Data sent externally:
 
 ## Testing
 
-Rust tests cover settings, CLI, RSS parsing, retry/cooldown, pacing, content conversion, Unicode chunking, structured OpenAI requests, Telegraph sanitization, Telegram payloads, dedupe ordering, polling cancellation, and a fully mocked end-to-end service flow.
+Rust tests cover settings, CLI, RSS parsing, Algolia discussion rendering/routing, retry/cooldown, pacing, timeout separation and diagnostics, Redis authentication propagation, content conversion, Unicode chunking, structured OpenAI requests, Telegraph sanitization, Telegram payloads, dedupe ordering, polling cancellation, and a fully mocked end-to-end service flow.
 
 Language-neutral fixtures under `tests/contracts/` are consumed by both Python and Rust during migration. External adapters use Wiremock; CI does not call live services or require secrets.
 

@@ -8,12 +8,14 @@ pub struct Settings {
     pub openai_api_key: String,
     pub openai_base_url: String,
     pub openai_model: String,
+    pub openai_timeout_seconds: f64,
     pub bot_token: String,
     pub chat_id: String,
     pub article_lang: String,
     pub redis_host: String,
     pub redis_port: u16,
     pub redis_db: i64,
+    pub redis_password: Option<String>,
     pub http_timeout_seconds: f64,
     pub http_user_agent: String,
     pub comments_fetch_concurrency: usize,
@@ -25,6 +27,7 @@ pub struct Settings {
     pub batch_sleep_seconds: f64,
     pub feed_poll_interval_seconds: f64,
     pub feed_base_url: String,
+    pub comments_api_base_url: String,
     pub telegraph_base_url: String,
     pub telegram_base_url: String,
 }
@@ -61,12 +64,14 @@ impl Settings {
             openai_api_key: required(values, "OPENAI_API_KEY")?,
             openai_base_url: string(values, "OPENAI_BASE_URL", "https://api.openai.com/v1"),
             openai_model: string(values, "OPENAI_MODEL", "gpt-5-mini"),
+            openai_timeout_seconds: float(values, "OPENAI_TIMEOUT_SECONDS", 120.0, 0.0, false)?,
             bot_token: required(values, "BOT_TOKEN")?,
             chat_id: required(values, "CHAT_ID")?,
             article_lang: string(values, "ARTICLE_LANG", "Traditional Chinese (台灣正體中文)"),
             redis_host: string(values, "REDIS_HOST", "localhost"),
             redis_port: integer(values, "REDIS_PORT", 6379, 1, u16::MAX)?,
             redis_db: integer(values, "REDIS_DB", 0, 0, i64::MAX)?,
+            redis_password: optional_string(values, "REDIS_PASSWORD"),
             http_timeout_seconds: float(values, "HTTP_TIMEOUT_SECONDS", 10.0, 0.0, false)?,
             http_user_agent: string(values, "HTTP_USER_AGENT", "hnbot/0.0.0"),
             comments_fetch_concurrency: integer(
@@ -108,6 +113,11 @@ impl Settings {
                 true,
             )?,
             feed_base_url: string(values, "HNBOT_FEED_BASE_URL", "https://hnrss.org"),
+            comments_api_base_url: string(
+                values,
+                "HNBOT_COMMENTS_API_BASE_URL",
+                "https://hn.algolia.com/api/v1/items",
+            ),
             telegraph_base_url: string(
                 values,
                 "HNBOT_TELEGRAPH_BASE_URL",
@@ -136,6 +146,13 @@ fn string(values: &HashMap<String, String>, name: &str, default: &str) -> String
         .filter(|value| !value.trim().is_empty())
         .cloned()
         .unwrap_or_else(|| default.to_owned())
+}
+
+fn optional_string(values: &HashMap<String, String>, name: &str) -> Option<String> {
+    values
+        .get(name)
+        .filter(|value| !value.trim().is_empty())
+        .cloned()
 }
 
 fn integer<T>(
@@ -207,6 +224,12 @@ mod tests {
         let settings = Settings::from_map(&required_values()).unwrap();
 
         assert_eq!(settings.openai_model, "gpt-5-mini");
+        assert_eq!(settings.openai_timeout_seconds, 120.0);
+        assert_eq!(settings.redis_password, None);
+        assert_eq!(
+            settings.comments_api_base_url,
+            "https://hn.algolia.com/api/v1/items"
+        );
         assert_eq!(settings.feed_points, 200);
         assert_eq!(settings.comments_fetch_concurrency, 1);
         assert_eq!(settings.article_pipeline_concurrency, 3);
@@ -233,10 +256,13 @@ mod tests {
 
     #[test]
     fn debug_output_redacts_secrets() {
-        let settings = Settings::from_map(&required_values()).unwrap();
+        let mut values = required_values();
+        values.insert("REDIS_PASSWORD".to_owned(), "redis-secret".to_owned());
+        let settings = Settings::from_map(&values).unwrap();
         let debug = format!("{settings:?}");
         assert!(!debug.contains("openai-secret"));
         assert!(!debug.contains("bot-secret"));
+        assert!(!debug.contains("redis-secret"));
         assert!(debug.contains("<redacted>"));
     }
 
@@ -244,11 +270,23 @@ mod tests {
     fn overrides_are_applied_and_unknown_values_ignored() {
         let mut values = required_values();
         values.insert("OPENAI_MODEL".to_owned(), "custom".to_owned());
+        values.insert("OPENAI_TIMEOUT_SECONDS".to_owned(), "45".to_owned());
+        values.insert("REDIS_PASSWORD".to_owned(), "redis-secret".to_owned());
+        values.insert(
+            "HNBOT_COMMENTS_API_BASE_URL".to_owned(),
+            "https://comments.example/items".to_owned(),
+        );
         values.insert("FEED_POINTS".to_owned(), "123".to_owned());
         values.insert("UNKNOWN".to_owned(), "ignored".to_owned());
 
         let settings = Settings::from_map(&values).unwrap();
         assert_eq!(settings.openai_model, "custom");
+        assert_eq!(settings.openai_timeout_seconds, 45.0);
+        assert_eq!(settings.redis_password.as_deref(), Some("redis-secret"));
+        assert_eq!(
+            settings.comments_api_base_url,
+            "https://comments.example/items"
+        );
         assert_eq!(settings.feed_points, 123);
     }
 }

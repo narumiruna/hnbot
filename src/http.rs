@@ -1,3 +1,4 @@
+use std::error::Error as _;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -59,7 +60,7 @@ pub async fn response_bytes(response: Response) -> Result<Vec<u8>, HttpFailure> 
     let bytes = response
         .bytes()
         .await
-        .map_err(|error| HttpFailure::Transport(error.to_string()))?;
+        .map_err(|error| HttpFailure::Transport(reqwest_error_message(&error)))?;
     if status.is_success() {
         return Ok(bytes.to_vec());
     }
@@ -75,6 +76,20 @@ pub async fn response_json<T: serde::de::DeserializeOwned>(
 ) -> Result<T, HttpFailure> {
     let bytes = response_bytes(response).await?;
     serde_json::from_slice(&bytes).map_err(|error| HttpFailure::Transport(error.to_string()))
+}
+
+pub fn reqwest_error_message(error: &reqwest::Error) -> String {
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        let cause_message = cause.to_string();
+        if !cause_message.is_empty() && !message.ends_with(&cause_message) {
+            message.push_str(": ");
+            message.push_str(&cause_message);
+        }
+        source = cause.source();
+    }
+    message
 }
 
 pub async fn retry_transient<F, Fut, T>(mut operation: F) -> Result<T, HttpFailure>
