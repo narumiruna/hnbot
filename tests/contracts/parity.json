@@ -1,0 +1,54 @@
+{
+  "html_to_markdown": {
+    "input": "<h2>Title</h2><p>Read <a href=\"https://example.com\">linked text</a>.</p><img src=\"diagram.png\" alt=\"diagram\">",
+    "expected": "Title\n-----\nRead linked text."
+  },
+  "retry_after": [
+    {"value": "2.5", "expected_seconds": 2.5},
+    {"value": "-2", "expected_seconds": 0.0},
+    {"value": "NaN", "expected_seconds": null},
+    {"value": "invalid", "expected_seconds": null}
+  ],
+  "article": {
+    "value": {
+      "title": "Article",
+      "summary": "摘要 <b>text</b>",
+      "sections": [
+        {
+          "title": "Section",
+          "emoji": "🦀",
+          "content": "Body"
+        }
+      ]
+    },
+    "rendered": "🦀 Section\n\nBody"
+  },
+  "sanitizer": {
+    "input": "<h1>Title</h1><a href=\"https://example.com\" onclick=\"bad\">link</a><script>x</script><b>open",
+    "expected": "<h3>Title</h3><a href=\"https://example.com\">link</a>&lt;script&gt;x&lt;/script&gt;<b>open</b>"
+  },
+  "message": {
+    "entry": {
+      "title": "title-<1>",
+      "link": "https://www.example.com/?a=<tag>",
+      "comment_url": "https://news.ycombinator.com/item?id=1&x=<z>",
+      "id": "1",
+      "published_at": "2026-01-01T00:00:00+00:00",
+      "points": 123,
+      "num_comments": 45
+    },
+    "article": {
+      "title": "Article",
+      "summary": "摘要 <b>text</b>",
+      "sections": [
+        {
+          "title": "Section",
+          "emoji": "🦀",
+          "content": "Body"
+        }
+      ]
+    },
+    "page_url": "https://telegra.ph/?x=<x>",
+    "expected": "📰 <b><a href=\"https://www.example.com/?a=&lt;tag&gt;\">title-&lt;1&gt;</a></b>\n⭐ 123 · 💬 45 · 🌐 example.com\n\n摘要 &lt;b&gt;text&lt;/b&gt;\n\n💬 <a href=\"https://news.ycombinator.com/item?id=1&amp;x=&lt;z&gt;\">討論</a>  ·  📝 <a href=\"https://telegra.ph/?x=&lt;x&gt;\">筆記</a>"
+  }
+}
