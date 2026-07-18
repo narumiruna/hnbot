@@ -6,7 +6,6 @@ from email.utils import parsedate_to_datetime
 from math import isfinite
 from typing import ParamSpec
 from typing import TypeVar
-from typing import cast
 
 import httpx
 from loguru import logger
@@ -91,11 +90,10 @@ def retry_transient_http_errors(
     *,
     before_sleep: Callable[[RetryCallState], None] | None = None,
 ) -> Callable[[Callable[_P, Awaitable[_T]]], Callable[_P, Awaitable[_T]]]:
-    retry_decorator = retry(
+    return retry(
         stop=stop_after_attempt(HTTP_RETRY_ATTEMPTS),
         wait=wait_for_transient_http_error,
         retry=retry_if_exception(is_transient_http_error),
         before_sleep=before_sleep or log_transient_http_retry,
         reraise=True,
     )
-    return cast(Callable[[Callable[_P, Awaitable[_T]]], Callable[_P, Awaitable[_T]]], retry_decorator)
