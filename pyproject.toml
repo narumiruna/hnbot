@@ -86,7 +86,7 @@ select = [
 force-single-line = true
 
 [tool.tombi.files]
-exclude = ["uv.lock"]
+exclude = ["Cargo.lock", "uv.lock"]
 
 [tool.tombi.format.rules]
 key-value-equals-sign-alignment = true

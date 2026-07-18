@@ -1,48 +1,55 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Core package code lives in `src/hnbot/`.
-- CLI entrypoint is `src/hnbot/cli.py` and is exposed as the `hnbot` console script.
-- Bot/runtime logic is primarily in `app.py`, with feed/article/page helpers in sibling modules.
-- Tests live in `tests/` (currently a minimal baseline; expand coverage as features grow).
-- CI and release automation are in `.github/workflows/`.
-- Environment templates are in `.env.example`; local secrets should stay in `.env` only.
+
+- The production Rust binary is defined by root `Cargo.toml`; Rust modules live in `src/*.rs`.
+- `src/main.rs` wires configuration, adapters, tracing, and the `hnbot` CLI.
+- Rust integration tests live in `tests/*.rs`; shared fixtures are under `tests/contracts/` and `tests/data/`.
+- `src/hnbot/` and Python tests are temporary rollback/parity sources during the Rust cutover and are not the production container runtime.
+- CI and release automation live in `.github/workflows/`.
+- Configuration placeholders belong in `.env.example`; secrets stay in `.env` only.
 
 ## Build, Test, and Development Commands
-- `uv sync` installs project and dev dependencies from `uv.lock`.
-- `just all` runs the standard local gate: format, lint, type-check, and tests.
-- `just format` runs `uv run ruff format`.
-- `just lint` runs `uv run ruff check --fix`.
-- `just type` runs `uv run ty check`.
-- `just test` runs `uv run pytest -v -s --cov=src tests`.
-- `uv run hnbot serve` starts the polling service locally.
 
-## Coding Style & Naming Conventions
-- Target Python 3.12+ and keep code under Ruff’s `line-length = 120`.
-- Use 4-space indentation and explicit type annotations on production code.
-- Follow module naming like existing files (`article.py`, `rss.py`, `utils.py`): short, lowercase, single-purpose.
-- Keep imports sorted and single-line grouped per Ruff isort settings.
-- Run pre-commit hooks before pushing (`ruff`, `ruff-format`, `ty-check`, `uv-lock`, TOML formatting).
+- `cargo build --locked` builds the Rust service.
+- `cargo run --release -- serve` starts the service locally.
+- `cargo fmt --check` verifies formatting.
+- `cargo clippy --all-targets --all-features -- -D warnings` runs the strict lint gate.
+- `cargo test --all-targets` runs unit, contract, CLI, and mocked integration tests.
+- `just all` runs the standard aggregate Rust gate.
+- `docker compose up -d --build --remove-orphans` builds and starts hnbot and Redis.
+
+## Coding Style & Design
+
+- Target Rust edition 2024 with MSRV 1.88 and keep `Cargo.lock` committed.
+- Keep modules single-purpose and use explicit error types at adapter boundaries.
+- Keep external I/O behind traits so tests remain deterministic and offline.
+- Preserve the existing Redis key/value contract and write only after Telegram succeeds.
+- Never run Python and Rust simultaneously against production side-effect services.
+- Source files exceeding 1,000 lines must be decomposed or carry a documented justification.
 
 ## Testing Guidelines
-- Framework: `pytest` with `pytest-cov`.
-- Place tests under `tests/` and name files `test_*.py`; prefer function names like `test_<behavior>()`.
-- For new features, add or update tests in the same PR.
-- Ensure coverage is collected for `src/` and no failing tests remain before opening a PR.
+
+- Add unit tests next to modules and end-to-end/mock tests under `tests/`.
+- Use Wiremock or fakes for HNRSS, OpenAI, Telegraph, Telegram, and Redis behavior; CI must not need network services or secrets.
+- Update shared contract fixtures when intentionally changing cross-runtime behavior.
+- Cover success, retry exhaustion, validation boundaries, dedupe ordering, cancellation, and partial failures.
 
 ## Commit & Pull Request Guidelines
-- Follow the repo’s history style: imperative, concise subject lines (e.g., `Refactor get_hn_feed to improve entry parsing`).
-- Keep commits focused; avoid mixing refactors and behavior changes when possible.
-- PRs should include: purpose, key changes, test evidence (command output), and linked issue(s) when applicable.
-- Ensure GitHub Actions `python.yml` checks pass (`ruff`, `ty`, `pytest --cov`) before requesting review.
 
-## Security & Configuration Tips
-- Do not commit secrets or real tokens; use `.env.example` placeholders.
-- If dependencies change, update lockfile (`uv lock`) so CI and local runs stay reproducible.
+- Use imperative, focused commit subjects consistent with repository history.
+- Do not mix unrelated refactors with behavior changes.
+- PRs should include purpose, key changes, test evidence, and linked issues when applicable.
+- Run Cargo gates and applicable pre-commit hooks before pushing.
+
+## Security & Operations
+
+- Never commit API keys, bot tokens, chat IDs, or Redis credentials.
+- Do not log credentials; settings debug output must remain redacted.
+- Preserve the existing Redis volume during cutover and rollback.
+- Use the non-root Docker runtime and keep CA certificates available for HTTPS.
 
 ## MEMORY.md
 
-- `MEMORY.md` is not auto-loaded. Check it before non-trivial debugging or design work when prior project context may matter.
-- Keep entries short and reusable.
-- `MEMORY.md` must use `## GOTCHA` and `## TASTE` sections.
-- After a non-trivial error or discovery, add one concise entry if it will help future work.
+- `MEMORY.md` is not auto-loaded. Check it before non-trivial debugging or design work.
+- Keep entries concise under `## GOTCHA` and `## TASTE`.

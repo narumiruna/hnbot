@@ -1,251 +1,146 @@
 # hnbot Design Document
 
-## Purpose and Non-Goals
+## Purpose
 
-This document describes the current production-oriented design of `hnbot` as implemented today.
+`hnbot` is a long-running Rust service that turns qualifying Hacker News discussions into structured Traditional Chinese articles and Telegram notifications.
 
-Purpose:
-- Explain the end-to-end runtime flow and module boundaries.
-- Document failure handling, concurrency controls, and operational knobs.
-- Provide maintainers with a reliable reference for debugging and on-call work.
+This document covers the implemented Rust runtime, external contracts, reliability boundaries, and deployment model. It does not define a product roadmap or replace third-party API documentation.
 
-Non-goals:
-- Proposing future architecture not present in the codebase.
-- Defining product roadmap or feature backlog.
-- Replacing API-level docs for third-party services.
+## Runtime and deployment
 
-## System Context
+- Binary: `hnbot`
+- Supported command: `hnbot serve [--poll-interval SECONDS]`
+- Deployment: Docker Compose only
+- State: the existing persistent Redis volume
+- Logging: structured JSON on stdout through `tracing`
 
-`hnbot` is a long-running Telegram bot pipeline that:
-- Reads Hacker News entries from `hnrss.org`.
-- Fetches the linked HN discussion page HTML.
-- Converts HTML to Markdown and summarizes it via OpenAI.
-- Publishes a long-form page to Telegraph.
-- Sends a formatted Telegram message to a target chat.
-- Deduplicates processed entries in Redis.
+Docker Compose builds a Rust binary in a pinned Rust 1.88 builder and copies it into a non-root Debian slim runtime. The hnbot container starts only after Redis passes its health check.
 
-External dependencies:
-- `hnrss.org` RSS feed (`/newest?points=...`)
-- OpenAI Responses API
-- Telegraph API
-- Telegram Bot API
-- Redis
+## Module boundaries
 
-## Runtime and Deployment
+- `src/config.rs` — `.env` and environment parsing, defaults, required secrets, and numeric validation
+- `src/cli.rs` — service-only Clap interface
+- `src/http.rs` — transient HTTP retry, `Retry-After`, and global request pacing
+- `src/rss.rs` — HNRSS retrieval and typed feed parsing
+- `src/content.rs` — HTML-to-Markdown normalization and Unicode-safe chunking
+- `src/article.rs` — article schema, prompt, validation, rendering, and recursive summarization
+- `src/openai.rs` — OpenAI Responses API adapter using strict JSON schema
+- `src/telegraph.rs` — Telegraph HTML sanitizer, Node JSON conversion, and page publishing
+- `src/telegram.rs` — Telegram Bot API adapter and escaped notification formatting
+- `src/store.rs` — async Redis dedupe adapter
+- `src/app.rs` — service loop, concurrency limits, failure boundaries, dedupe ordering, and cancellation
+- `src/main.rs` — tracing, configuration, CLI dispatch, and production adapter wiring
 
-Local runtime:
-- Entrypoint: `hnbot` console script -> `hnbot.cli:app`.
-- Service command: `uv run hnbot serve`.
-- `.env` is loaded by CLI via `python-dotenv`.
-
-Execution model:
-- The service immediately processes one feed batch, waits `feed_poll_interval_seconds`, and repeats.
-- Batches never overlap; the polling delay starts only after every entry task from the current batch has finished.
-
-## End-to-End Flow
+## End-to-end flow
 
 ```mermaid
 flowchart LR
-    A[hnrss.org RSS feed] --> B[Parse feed entries]
-    B --> C[Sleep batch_sleep_seconds]
-    C --> D[Check Redis key hnbot:entry:{id}]
-    D -->|not processed| E[Fetch HN comments HTML]
-    E --> F[Convert HTML to Markdown]
-    F --> G[Retry on transient HTTP errors]
-    G --> H[Generate structured article via OpenAI]
-    H --> I[Create Telegraph page]
-    I --> J[Build escaped HTML Telegram message]
-    J --> K[Send Telegram message]
-    K --> L[Set Redis dedupe key]
-    D -->|already processed| M[Skip entry]
+    A[HNRSS feed] --> B[Parse and reverse entries]
+    B --> C[Redis exists]
+    C -->|seen| D[Skip]
+    C -->|unseen| E[Paced HN comment fetch]
+    E --> F[HTML to Markdown]
+    F --> G[Chunk and summarize]
+    G --> H[Create Telegraph page]
+    H --> I[Build escaped Telegram HTML]
+    I --> J[Send Telegram message]
+    J --> K[Set Redis key]
 ```
 
-## Component Responsibilities
+The service processes one feed batch immediately. Batches never overlap; the configured polling delay begins only after all sibling entry futures finish.
 
-- `src/hnbot/cli.py`
-- Loads environment variables, builds settings, configures logfire, and launches `App`.
+## Data contracts
 
-- `src/hnbot/settings.py`
-- Defines runtime configuration with `pydantic-settings`.
-- Provides cached singleton settings via `get_settings()`.
+### Feed entry
 
-- `src/hnbot/app.py`
-- Orchestrates feed batch execution.
-- Handles dedupe checks, bounded concurrency, and pipeline error boundaries.
-- Sends final Telegram notifications.
+`HnEntry` contains:
 
-- `src/hnbot/http_retry.py`
-- Defines the shared transient HTTP retry policy for idempotent external GET requests.
-- Retries `httpx` request failures, HTTP 429, and HTTP 5xx with bounded backoff and retry logging.
+- title and source link
+- HN comment URL and extracted ID
+- UTC publication timestamp
+- optional points and comment count
 
-- `src/hnbot/rss.py`
-- Fetches and parses HN RSS feed into typed `HNFeed` / `HNEntry` objects.
-- Extracts entry ID from HN comment URL query (`id`).
+Feed entries are reversed before processing to preserve the Python runtime's ordering contract.
 
-- `src/hnbot/article.py`
-- Defines article output schema (`Article`, `Section`).
-- Calls OpenAI parse endpoint with strict instructions.
-- Renders article text and creates Telegraph page.
+### Article
 
-- `src/hnbot/llm.py`
-- Thin async wrapper around the OpenAI Responses API parse method.
-- Reads model from settings (`openai_model`).
+`Article` contains a title, summary, and ordered `Section` list. Each section contains a title, one emoji, and body content. The OpenAI request includes a strict schema generated by `schemars`; returned content is parsed with `serde_json` and checked against length constraints.
 
-- `src/hnbot/page.py`
-- Creates Telegraph client/account and page.
-- Sanitizes HTML into Telegraph-compatible subset.
+### Redis
 
-- `src/hnbot/utils.py`
-- HTML -> Markdown conversion and whitespace normalization.
-- Optional logfire configuration.
-
-## Data Contracts
-
-Core models:
-- `HNEntry`
-  - `title: str`
-  - `link: str`
-  - `comment_url: str`
-  - `id: str`
-  - `published_at: datetime` (normalized to UTC)
-- `HNFeed`
-  - `title: str`
-  - `entries: list[HNEntry]`
-
-Generated content models:
-- `Section`
-  - `title: str`
-  - `emoji: str`
-  - `content: str`
-- `Article`
-  - `title: str`
-  - `summary: str`
-  - `sections: list[Section]`
-
-Redis contract:
 - Key: `hnbot:entry:{entry.id}`
-- Value: `entry.comment_url`
-- Semantics: presence means "already processed" for future runs.
-- TTL: none (persistent unless externally evicted/deleted).
+- Value: HN comment URL
+- TTL: none
+- Write timing: only after Telegram confirms a successful send
 
-Telegram message contract:
-- HTML parse mode.
-- Includes escaped title and summary.
-- Includes links to source article, HN discussion, and Telegraph note.
+This schema is unchanged, so existing Compose volumes remain usable without migration.
 
-## Reliability and Failure Handling
+## External API adapters
 
-Shared transient HTTP retry policy (`hnbot.http_retry`):
-- Applied to HNRSS feed fetch (`get_hn_feed`) and HN comment fetch (`CommentFetcher._fetch_with_retry`).
-- Maximum attempts: 3.
-- Retry condition:
-  - `httpx.RequestError` (for example `ConnectTimeout`).
-  - `httpx.HTTPStatusError` with 429 or 5xx.
-- Wait strategy:
-  - If `Retry-After` header is present on HTTP status error and can be parsed, use it.
-  - Otherwise exponential jitter (`initial=1`, `max=8`).
-- HN comment requests additionally share a process-wide pacer:
-  - Request starts are separated by `comments_fetch_min_interval_seconds` (default `2.0`).
-  - A 429 defers all later comment requests for `Retry-After`, or `comments_fetch_429_cooldown_seconds`
-    (default `30.0`) when that header is absent.
+All adapters use a shared `reqwest` client with configured timeout and User-Agent.
 
-Batch/feed failure boundary:
-- If HNRSS feed fetch fails after retries, the batch raises the final HTTP error after retry evidence is logged.
-- The service logs the batch exception and starts the next poll after the configured interval.
+### HNRSS and HN comments
 
-Per-entry failure boundaries:
-- If comment fetch fails after retries: entry is skipped (returns `False`).
-- If OpenAI rejects input with `BadRequestError` (for example `invalid_prompt`): entry is skipped.
-- If article generation/page creation fails with `RuntimeError` or `ValueError`: entry is skipped.
-- Failed entries are not marked in Redis.
-- Processing of other entries continues. All entry tasks are awaited before unexpected entry exceptions are propagated.
+HNRSS is fetched from `/newest?points=...`. Feed and comment GETs retry transport failures, HTTP 429, and HTTP 5xx up to three attempts. Numeric and HTTP-date `Retry-After` values are honored.
 
-## Concurrency and Throughput
+HN comment request starts share a process-wide pacer. A 429 extends the global cooldown using `Retry-After` or `COMMENTS_FETCH_429_COOLDOWN_SECONDS`.
 
-Two independent semaphores are used per batch:
-- Fetch semaphore: `comments_fetch_concurrency` (default `1`).
-- Pipeline semaphore: `article_pipeline_concurrency` (default `3`).
+### OpenAI
 
-Behavioral implications:
-- Comment fetching can be serialized while generation runs in parallel.
-- Comment request starts remain paced even if fetch concurrency is increased.
-- Final send order is not guaranteed to match feed order when pipeline tasks have different durations.
+The adapter posts to `{OPENAI_BASE_URL}/responses` with Bearer authentication, the configured model, unchanged article instructions, and a strict JSON schema under `text.format`. API keys are held in redacted settings and are never included in tracing fields.
 
-Batch pacing:
-- `batch_sleep_seconds` delay is applied before processing feed entries.
-- Default is `0.5` seconds.
+### Telegraph
 
-Service polling:
-- `feed_poll_interval_seconds` controls the delay after a completed or failed batch.
-- Default is `30.0` seconds and the minimum is `1.0` second.
-- `hnbot serve --poll-interval` overrides the configured value for one process.
+The adapter creates an account, sanitizes generated HTML to Telegraph's allowed tags and attributes, converts it into Telegraph Node JSON, and creates a page. Unsupported or mismatched tags are escaped rather than executed.
 
-## Configuration Reference
+### Telegram
 
-Required:
-- `BOT_TOKEN`: Telegram bot token.
-- `CHAT_ID`: target Telegram chat ID.
+The adapter posts `chat_id`, escaped HTML text, and `parse_mode=HTML` to `sendMessage`. Titles, summaries, source URLs, discussion URLs, and page URLs are escaped before interpolation.
 
-Common optional settings and defaults:
-- `OPENAI_MODEL = gpt-5-mini`
-- `OPENAI_BASE_URL` (OpenAI client-compatible endpoint override)
-- `ARTICLE_LANG = Traditional Chinese (台灣正體中文)`
-- `LOGFIRE_TOKEN` (enables instrumentation)
-- `REDIS_HOST = localhost`
-- `REDIS_PORT = 6379`
-- `REDIS_DB = 0`
-- `HTTP_TIMEOUT_SECONDS = 10.0`
-- `HTTP_USER_AGENT = hnbot/0.0.0`
-- `COMMENTS_FETCH_CONCURRENCY = 1` (must be >= 1)
-- `COMMENTS_FETCH_MIN_INTERVAL_SECONDS = 2.0` (must be finite and >= 0.0)
-- `COMMENTS_FETCH_429_COOLDOWN_SECONDS = 30.0` (must be finite and >= 0.0)
-- `ARTICLE_PIPELINE_CONCURRENCY = 3` (must be >= 1)
-- `CHUNK_SIZE = 200000` (must be >= 1)
-- `FEED_POINTS = 100` (must be >= 1)
-- `BATCH_SLEEP_SECONDS = 0.5` (must be >= 0.0)
-- `FEED_POLL_INTERVAL_SECONDS = 30.0` (must be >= 1.0)
+## Concurrency and failure boundaries
 
-## Observability
+Two Tokio semaphores apply per batch:
 
-Logging:
-- Runtime logs are emitted via `loguru`.
+- comment fetch concurrency (`COMMENTS_FETCH_CONCURRENCY`, default 1)
+- article generation/publishing concurrency (`ARTICLE_PIPELINE_CONCURRENCY`, default 3)
 
-Optional logfire integration:
-- Enabled only when `LOGFIRE_TOKEN` is set.
-- Instruments OpenAI and Redis via `logfire.instrument_openai()` and `logfire.instrument_redis()`.
+Failure behavior:
 
-## Security and Privacy
+- feed failure after retries fails the batch; the service logs it and polls again later
+- comment failure skips only that entry
+- OpenAI/article/Telegraph failure skips only that entry
+- Telegram or Redis failure is an unexpected entry failure and makes the batch fail after sibling futures finish
+- failed entries are not written to Redis
+- SIGINT and SIGTERM cancel the polling delay and let owned clients close through Rust RAII
 
-Secrets:
-- API keys/tokens are expected from environment variables (or local `.env`).
-- `.env` must remain local and uncommitted.
+## Observability and security
 
-Data flow considerations:
-- HN discussion content is sent to OpenAI for summarization.
-- Generated content is published to Telegraph (public URL by design).
-- Final message content is delivered to Telegram chat.
+`tracing-subscriber` writes JSON to stdout and respects `RUST_LOG`. Settings use a custom redacted `Debug` implementation; OpenAI and Telegram credentials are never logged.
 
-## Testing and Coverage Snapshot
+The service runs as a non-root user in the final container. Secrets are supplied through `.env`/environment variables and must not be committed.
 
-Current tests validate:
-- Settings requirements/defaults and validation constraints.
-- RSS parsing behavior and entry reversal.
-- Retry behavior for transient feed fetch and comment fetch errors.
-- Invalid-prompt article generation failures are skipped without marking Redis state.
-- Markdown truncation behavior by configured max length.
-- Parallel pipeline behavior (including non-deterministic send order).
-- Message HTML escaping for title/summary/links.
-- OpenAI model propagation from settings in the LLM wrapper.
-- Service CLI dispatch, polling interval precedence, sequential polling, failure recovery, and cancellation cleanup.
+Data sent externally:
 
-Known test gaps:
-- No full integration test against real external services.
-- Limited direct tests for `page.py` sanitizer edge cases.
+- HN discussion text is sent to OpenAI
+- generated article content is published to a public Telegraph URL
+- notification content is sent to the configured Telegram chat
 
-## Known Limitations
+## Testing
 
-- Service mode does not fetch another feed while the current batch is still processing.
-- Dedupe key has no TTL and can grow without a retention policy.
-- Heavy dependence on external service availability and latency after bounded HTTP retries are exhausted.
-- OpenAI generation, Telegraph page creation, and Telegram sending are not retried because they can have non-idempotent side effects or extra cost.
-- Telegraph account creation is performed at page creation time.
+Rust tests cover settings, CLI, RSS parsing, retry/cooldown, pacing, content conversion, Unicode chunking, structured OpenAI requests, Telegraph sanitization, Telegram payloads, dedupe ordering, polling cancellation, and a fully mocked end-to-end service flow.
+
+Language-neutral fixtures under `tests/contracts/` are consumed by both Python and Rust during migration. External adapters use Wiremock; CI does not call live services or require secrets.
+
+CI runs:
+
+```sh
+cargo fmt --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-targets
+docker build --tag hnbot:test .
+docker run --rm hnbot:test serve --help
+```
+
+## Migration status
+
+The Dockerfile and Compose runtime target Rust. The legacy Python source remains temporarily as rollback material until the controlled three-batch production acceptance is recorded. Python and Rust must never run concurrently against the production Telegram, Telegraph, and Redis configuration.

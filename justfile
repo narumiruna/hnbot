@@ -1,26 +1,21 @@
 [default]
-all: format lint type test
+all: format lint test
 
-# Format code using ruff
 format:
-    uv run ruff format
+    cargo fmt --check
 
-# Lint code using ruff
 lint:
-    uv run ruff check --fix
+    cargo clippy --all-targets --all-features -- -D warnings
 
-# Type checking using ty
-type:
-    uv run ty check
-
-# Run tests using pytest with coverage
 test:
-    uv run pytest -v -s --cov=src tests
+    cargo test --all-targets
 
-# Build and publish the package to PyPI
-publish:
-    uv build
-    uv publish
+# Temporary parity/rollback gate until the controlled Rust cutover is accepted.
+python-all:
+    uv run ruff format --check
+    uv run ruff check
+    uv run ty check
+    uv run pytest -v -s --cov=src/hnbot tests --ignore=tests/cli.rs --ignore=tests/contracts.rs --ignore=tests/service.rs
 
 up:
     docker compose up -d --build --remove-orphans

@@ -1,31 +1,24 @@
-# https://docs.astral.sh/uv/guides/integration/docker/#non-editable-installs
-ARG PYTHON_VERSION=3.12
+ARG RUST_VERSION=1.88
 ARG DEBIAN_VERSION=bookworm
-FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${DEBIAN_VERSION}-slim AS uv
+FROM rust:${RUST_VERSION}-${DEBIAN_VERSION} AS builder
 
 WORKDIR /app
 
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY src ./src
+RUN cargo build --release --locked
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev --no-editable
-
-ADD . /app
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable
-
-FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
+FROM debian:${DEBIAN_VERSION}-slim
 
 WORKDIR /app
 
-RUN groupadd --system app && useradd --system --gid app --no-create-home app
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app \
+    && useradd --system --gid app --no-create-home app
 
-COPY --from=uv --chown=app:app /app/.venv /app/.venv
-
-ENV PATH="/app/.venv/bin:$PATH"
+COPY --from=builder --chown=app:app /app/target/release/hnbot /usr/local/bin/hnbot
 
 USER app
 
