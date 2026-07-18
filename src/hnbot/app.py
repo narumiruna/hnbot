@@ -20,7 +20,9 @@ from tenacity import stop_after_attempt
 
 from hnbot.article import Article
 from hnbot.article import generate_article
+from hnbot.http_pacing import RequestPacer
 from hnbot.http_retry import log_transient_http_retry
+from hnbot.http_retry import retry_after_seconds
 from hnbot.http_retry import retry_transient_http_errors
 from hnbot.rss import HNEntry
 from hnbot.rss import get_hn_feed
@@ -68,14 +70,30 @@ class RedisClient(Protocol):
 
 
 class CommentFetcher:
-    def __init__(self, http_client: httpx.AsyncClient, settings: Settings) -> None:
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient,
+        settings: Settings,
+        *,
+        request_pacer: RequestPacer | None = None,
+    ) -> None:
         self.http_client = http_client
         self.settings = settings
+        self.request_pacer = request_pacer or RequestPacer(settings.comments_fetch_min_interval_seconds)
 
     @retry_transient_http_errors(before_sleep=_log_comment_fetch_retry)
     async def _fetch_with_retry(self, entry: HNEntry) -> str:
-        resp = await self.http_client.get(entry.comment_url)
-        resp.raise_for_status()
+        await self.request_pacer.wait()
+        try:
+            resp = await self.http_client.get(entry.comment_url)
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 429:
+                retry_after = retry_after_seconds(exc)
+                cooldown = retry_after if retry_after is not None else self.settings.comments_fetch_429_cooldown_seconds
+                await self.request_pacer.defer(cooldown)
+            raise
+
         return html_to_markdown(resp.text)
 
     async def fetch(self, entry: HNEntry) -> str:

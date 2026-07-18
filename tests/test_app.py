@@ -9,7 +9,9 @@ from openai import BadRequestError
 
 from hnbot.app import App
 from hnbot.app import ArticlePipeline
+from hnbot.app import CommentFetcher
 from hnbot.app import Notifier
+from hnbot.http_pacing import RequestPacer
 from hnbot.rss import HNEntry
 from hnbot.rss import HNFeed
 from hnbot.settings import Settings
@@ -55,6 +57,8 @@ def _settings(**overrides: object) -> Settings:
         {
             "bot_token": "bot-token",
             "chat_id": "chat-id",
+            "comments_fetch_min_interval_seconds": 0.0,
+            "comments_fetch_429_cooldown_seconds": 0.0,
             **overrides,
         }
     )
@@ -69,6 +73,46 @@ def _http_status_error(status: int, url: str, retry_after: str | None = None) ->
 
 async def _close_app_client(app: App) -> None:
     await app.http_client.aclose()
+
+
+@pytest.mark.anyio
+async def test_comment_fetcher_preserves_global_cooldown_after_429_retries_are_exhausted(monkeypatch) -> None:
+    settings = _settings(
+        comments_fetch_min_interval_seconds=2.0,
+        comments_fetch_429_cooldown_seconds=30.0,
+    )
+    app = App(settings)
+    request_times: list[float] = []
+    now = {"value": 0.0}
+
+    def clock() -> float:
+        return now["value"]
+
+    async def fake_sleep(seconds: float) -> None:
+        now["value"] += seconds
+
+    async def fake_get(url: str) -> httpx.Response:
+        request_times.append(clock())
+        request = httpx.Request("GET", url)
+        status_code = 429 if url.endswith("limited") else 200
+        return httpx.Response(status_code, request=request, text="<p>comment markdown</p>")
+
+    app.fetcher = CommentFetcher(
+        app.http_client,
+        settings,
+        request_pacer=RequestPacer(2.0, clock=clock, sleep=fake_sleep),
+    )
+    monkeypatch.setattr(app.http_client, "get", fake_get)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    try:
+        with pytest.raises(httpx.HTTPStatusError):
+            await app.fetcher.fetch(_entry("limited"))
+        assert await app.fetcher.fetch(_entry("next")) == "comment markdown"
+    finally:
+        await _close_app_client(app)
+
+    assert request_times == [0.0, 30.0, 60.0, 90.0]
 
 
 @pytest.mark.anyio

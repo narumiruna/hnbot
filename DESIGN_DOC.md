@@ -150,6 +150,10 @@ Shared transient HTTP retry policy (`hnbot.http_retry`):
 - Wait strategy:
   - If `Retry-After` header is present on HTTP status error and can be parsed, use it.
   - Otherwise exponential jitter (`initial=1`, `max=8`).
+- HN comment requests additionally share a process-wide pacer:
+  - Request starts are separated by `comments_fetch_min_interval_seconds` (default `2.0`).
+  - A 429 defers all later comment requests for `Retry-After`, or `comments_fetch_429_cooldown_seconds`
+    (default `30.0`) when that header is absent.
 
 Batch/feed failure boundary:
 - If HNRSS feed fetch fails after retries, the batch raises the final HTTP error and the cron job fails after retry evidence is logged.
@@ -170,6 +174,7 @@ Two independent semaphores are used per batch:
 
 Behavioral implications:
 - Comment fetching can be serialized while generation runs in parallel.
+- Comment request starts remain paced even if fetch concurrency is increased.
 - Final send order is not guaranteed to match feed order when pipeline tasks have different durations.
 
 Batch pacing:
@@ -198,6 +203,8 @@ Common optional settings and defaults:
 - `HTTP_TIMEOUT_SECONDS = 10.0`
 - `HTTP_USER_AGENT = hnbot/0.0.0`
 - `COMMENTS_FETCH_CONCURRENCY = 1` (must be >= 1)
+- `COMMENTS_FETCH_MIN_INTERVAL_SECONDS = 2.0` (must be finite and >= 0.0)
+- `COMMENTS_FETCH_429_COOLDOWN_SECONDS = 30.0` (must be finite and >= 0.0)
 - `ARTICLE_PIPELINE_CONCURRENCY = 3` (must be >= 1)
 - `CHUNK_SIZE = 200000` (must be >= 1)
 - `FEED_POINTS = 100` (must be >= 1)
