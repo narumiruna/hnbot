@@ -1,4 +1,15 @@
+from hnbot.utils import html_to_markdown
 from hnbot.utils import normalize_whitespace
+
+
+def test_html_to_markdown_converts_string_content() -> None:
+    html = """
+        <h2>Title</h2>
+        <p>Read <a href="https://example.com">linked text</a>.</p>
+        <img src="diagram.png" alt="diagram">
+    """
+
+    assert html_to_markdown(html) == "Title\n-----\nRead linked text."
 
 
 def test_normalize_whitespace_strips_and_joins() -> None:

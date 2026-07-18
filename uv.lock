@@ -3,20 +3,6 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
-name = "aiocache"
-version = "0.12.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7a/64/b945b8025a9d1e6e2138845f4022165d3b337f55f50984fbc6a4c0a1e355/aiocache-0.12.3.tar.gz", hash = "sha256:f528b27bf4d436b497a1d0d1a8f59a542c153ab1e37c3621713cb376d44c4713", size = 132196, upload-time = "2024-09-25T13:20:23.823Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/d7/15d67e05b235d1ed8c3ce61688fe4d84130e72af1657acadfaac3479f4cf/aiocache-0.12.3-py2.py3-none-any.whl", hash = "sha256:889086fc24710f431937b87ad3720a289f7fc31c4fd8b68e9f918b9bacd8270d", size = 28199, upload-time = "2024-09-25T13:20:22.688Z" },
-]
-
-[package.optional-dependencies]
-redis = [
-    { name = "redis" },
-]
-
-[[package]]
 name = "aiofiles"
 version = "25.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -559,7 +545,6 @@ name = "hnbot"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aiocache", extra = ["redis"] },
     { name = "aiogram" },
     { name = "chonkie" },
     { name = "feedparser" },
@@ -571,7 +556,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
-    { name = "rich" },
+    { name = "redis" },
     { name = "telegraph" },
     { name = "tenacity" },
     { name = "typer" },
@@ -587,7 +572,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiocache", extras = ["redis"], specifier = ">=0.12.3" },
     { name = "aiogram", specifier = ">=3.26.0" },
     { name = "chonkie", specifier = ">=1.6.2" },
     { name = "feedparser", specifier = ">=6.0.12" },
@@ -599,7 +583,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.13.1" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
-    { name = "rich", specifier = ">=14.3.2" },
+    { name = "redis", specifier = ">=7.4.0" },
     { name = "telegraph", specifier = ">=2.2.0" },
     { name = "tenacity", specifier = ">=9.1.4" },
     { name = "typer", specifier = ">=0.21.1" },
