@@ -21,8 +21,12 @@ FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
 
 WORKDIR /app
 
+RUN groupadd --system app && useradd --system --gid app --no-create-home app
+
 COPY --from=uv --chown=app:app /app/.venv /app/.venv
 
 ENV PATH="/app/.venv/bin:$PATH"
+
+USER app
 
 ENTRYPOINT ["hnbot"]
