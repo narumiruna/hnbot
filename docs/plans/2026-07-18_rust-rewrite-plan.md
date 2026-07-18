@@ -57,7 +57,7 @@
 
 ## Plan
 
-- [ ] 建立並保存本計畫，記錄 Python baseline contract 與目前 `just all`、CLI help、Docker Compose config 結果；計畫檔已建立、Python `just all`（58 tests）與兩個 CLI help 已成功，但 WSL 尚未提供 `docker` command，因此 Compose baseline 待外部 Docker integration 啟用後補驗。
+- [x] 建立並保存本計畫，記錄 Python baseline contract 與目前 `just all`、CLI help、Docker Compose config 結果；Python baseline `just all`（58 tests）與兩個 CLI help 成功，Compose file 未改動且後續由 GitHub CI run `29637092472` 的 `docker compose config --quiet` 補驗成功。
 - [x] 新增 root `Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Rust modules 與 Rust CI job；edition 2024/MSRV 1.88 已固定，Rust format、strict clippy、46 tests 全部通過，`just python-all` 亦以 59 tests 通過。
 - [x] 實作 typed settings、domain models 與 `clap` CLI contract；所有既有 defaults/validation、`.env`、poll override、裸命令 help 與 `main` rejection 已由 config/CLI unit tests、3 個 `assert_cmd` tests 及 live help smoke 證明。
 - [x] 建立 `tests/contracts/parity.json` 與既有 RSS XML 共用 fixtures；Python/Rust 同時驗證 retry-after、HTML-to-Markdown、article rendering、Telegraph sanitizer、Telegram escaping 與 RSS contract，雙方 fixture tests 通過。
@@ -68,7 +68,7 @@
 - [x] 實作 async Redis dedupe store 與 Tokio `App`；fake adapters/paused time 已驗證兩組 semaphore（fetch max 1/pipeline max 3）、send 後 set、失敗不 set、siblings join、sequential 3 batches 與 cancellation，production SIGINT/SIGTERM handler 由 cancellation token 驅動。
 - [x] 新增完全 mock 的 `tests/service.rs`，以 production HTTP adapters 跑過 RSS → comments → OpenAI → Telegraph → Telegram → fake Redis，第二輪驗證 dedupe；全部 Cargo tests 不需外網、services 或 secrets。
 - [x] 完成 Python/Rust parity review：settings/CLI/RSS/retry/pacing/prompt/schema/sanitizer/message/Redis/concurrency/failure/cancellation 均由 shared fixtures、兩套 gates與 module tests 對照；刻意差異只有 JSON stdout tracing 取代 Logfire及 Docker-only 發行。
-- [ ] 切換 build/deployment：Rust multi-stage/non-root Dockerfile、原 Compose Redis volume/`serve` command、Rust+Docker CI 與 Rust 文件均已完成；本機 WSL 缺少 `docker` command，Docker build、Compose config 與 container help 待 Docker integration 或 GitHub CI 補驗，Python rollback source仍保留。
+- [x] 切換 build/deployment code：Rust multi-stage/non-root Dockerfile、原 Compose Redis volume/`serve` command、Rust+Docker CI 與 Rust 文件均已完成；GitHub CI run `29637092472` 已通過 Rust gates、Docker build、Compose config 與 container `serve --help`，Python rollback source依計畫保留至受控部署通過。
 - [ ] 執行受控切換：停止 Python service 後以同一 Redis volume 啟動 Rust image，禁止雙跑；觀察恰好 3 個完成的 feed batches，驗證 process 未退出、batch 不重疊、既有 Redis entries 被略過、每個新成功通知只有一次 send 與對應 Redis key。任一條件失敗即部署前一個 Python image 並保留 Rust code 修正。
 - [ ] 受控切換通過後移除 Python runtime/tooling：刪除 `src/hnbot/`、Python tests/scripts、`pyproject.toml`、`uv.lock` 與 Python CI/publish/bump workflow；將 justfile/pre-commit/Dependabot/README/DESIGN_DOC/AGENTS.md 改成 Cargo + Docker Compose，保留共享 contract fixtures與 RSS sample。驗證 repository 不再引用 Python、uv、PyPI、Logfire 或已刪路徑。
 - [ ] 執行最終 gate：`cargo fmt --check`、strict clippy、所有 Rust tests、Docker build、Compose config、container CLI smoke、secret scan、`git diff --check` 全部成功；完成計畫 checklist 後移至 `docs/plans/archived/`。
@@ -100,10 +100,10 @@
 
 ## Completion Checklist
 
-- [ ] Rust `hnbot serve` 在 CLI、設定、資料流、retry/pacing、concurrency、failure boundaries、shutdown 與 Redis contract 上達到已記錄的 Python parity，並由共享 fixtures及 Rust tests 證明。
+- [x] Rust `hnbot serve` 在 CLI、設定、資料流、retry/pacing、concurrency、failure boundaries、shutdown 與 Redis contract 上達到已記錄的 Python parity，並由共享 fixtures及 Rust tests 證明。
 - [ ] 正式 Compose 已只執行 Rust image，使用原 Redis volume，且受控 3-batch 驗收全部通過並有 deployment evidence。
 - [ ] Repository 已移除 Python、uv、PyPI、Logfire 與其 workflows/config，驗證方式為 repository search、tracked file review 與 Rust-only CI。
 - [ ] `tracing` stdout 不包含 secrets，且 service/batch/entry/retry/cancellation 事件可由 mock tests與受控部署 logs 驗證。
 - [ ] Docker image 以 non-root user 執行，`hnbot serve --help` smoke、Compose config 與 service startup 均通過。
-- [ ] Cargo format、strict clippy、全部 tests、Docker build、pre-commit 與 GitHub CI 全部通過。
+- [x] Cargo format、strict clippy、全部 tests、Docker build、pre-commit 與 GitHub CI 全部通過（pre-removal gate；移除 Python 後須再跑一次 final gate）。
 - [ ] 文件只描述 Rust + Docker Compose 的現行操作，且完成計畫已封存至 `docs/plans/archived/2026-07-18_rust-rewrite-plan.md`。
