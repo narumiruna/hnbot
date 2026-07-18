@@ -161,7 +161,7 @@ fn render_comment_api_payload(bytes: &[u8]) -> Result<String, HttpFailure> {
         .map(|comment| (comment, 2_usize))
         .collect::<Vec<_>>();
     while let Some((comment, depth)) = stack.pop() {
-        if let Some(text) = normalized_markdown(comment.text.as_deref()) {
+        let child_depth = if let Some(text) = normalized_markdown(comment.text.as_deref()) {
             let author = comment
                 .author
                 .as_deref()
@@ -169,9 +169,12 @@ fn render_comment_api_payload(bytes: &[u8]) -> Result<String, HttpFailure> {
                 .map(|author| author.split_whitespace().collect::<Vec<_>>().join(" "))
                 .unwrap_or_else(|| "[deleted]".to_owned());
             sections.push(format!("{} {author}\n\n{text}", "#".repeat(depth.min(6))));
-        }
+            depth + 1
+        } else {
+            depth
+        };
         if let Some(children) = &comment.children {
-            stack.extend(children.iter().rev().map(|child| (child, depth + 1)));
+            stack.extend(children.iter().rev().map(|child| (child, child_depth)));
         }
     }
 
@@ -237,14 +240,14 @@ pub struct App {
 
 impl App {
     pub async fn production(settings: Settings) -> Result<Self, AppError> {
-        let (client, openai_http_client) = build_http_clients(&settings)?;
+        let (client, comments_http_client, openai_http_client) = build_http_clients(&settings)?;
         let feed = Arc::new(HnFeedSource::new(
             client.clone(),
             &settings.feed_base_url,
             settings.feed_points,
         ));
         let comments = Arc::new(HnCommentSource::new(
-            client.clone(),
+            comments_http_client,
             settings.comments_api_base_url.clone(),
             Duration::from_secs_f64(settings.comments_fetch_min_interval_seconds),
             Duration::from_secs_f64(settings.comments_fetch_429_cooldown_seconds),
@@ -448,7 +451,7 @@ impl App {
     }
 }
 
-fn build_http_clients(settings: &Settings) -> Result<(Client, Client), AppError> {
+fn build_http_clients(settings: &Settings) -> Result<(Client, Client, Client), AppError> {
     let build = |timeout_seconds| {
         Client::builder()
             .timeout(Duration::from_secs_f64(timeout_seconds))
@@ -458,6 +461,7 @@ fn build_http_clients(settings: &Settings) -> Result<(Client, Client), AppError>
     };
     Ok((
         build(settings.http_timeout_seconds)?,
+        build(settings.comments_fetch_timeout_seconds)?,
         build(settings.openai_timeout_seconds)?,
     ))
 }
@@ -735,7 +739,8 @@ mod tests {
         assert!(content.contains("Story text"));
         assert!(content.contains("## alice\n\nTop **comment**"));
         assert!(content.contains("### bob\n\nNested reply"));
-        assert!(content.contains("### carol\n\nReply to deleted comment"));
+        assert!(content.contains("## carol\n\nReply to deleted comment"));
+        assert!(!content.contains("### carol\n\nReply to deleted comment"));
     }
 
     #[tokio::test]
@@ -761,18 +766,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn production_clients_apply_dedicated_openai_timeout() {
+    async fn production_clients_apply_dedicated_request_timeouts() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/slow"))
             .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_millis(50)))
-            .expect(2)
+            .expect(3)
             .mount(&server)
             .await;
         let mut settings = settings();
         settings.http_timeout_seconds = 0.01;
+        settings.comments_fetch_timeout_seconds = 1.0;
         settings.openai_timeout_seconds = 1.0;
-        let (general_client, openai_client) = build_http_clients(&settings).unwrap();
+        let (general_client, comments_client, openai_client) =
+            build_http_clients(&settings).unwrap();
         let url = format!("{}/slow", server.uri());
 
         assert!(
@@ -783,15 +790,9 @@ mod tests {
                 .unwrap_err()
                 .is_timeout()
         );
-        assert!(
-            openai_client
-                .get(&url)
-                .send()
-                .await
-                .unwrap()
-                .status()
-                .is_success()
-        );
+        for client in [comments_client, openai_client] {
+            assert!(client.get(&url).send().await.unwrap().status().is_success());
+        }
     }
 
     #[tokio::test]

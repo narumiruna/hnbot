@@ -19,6 +19,7 @@ pub struct Settings {
     pub http_timeout_seconds: f64,
     pub http_user_agent: String,
     pub comments_fetch_concurrency: usize,
+    pub comments_fetch_timeout_seconds: f64,
     pub comments_fetch_min_interval_seconds: f64,
     pub comments_fetch_429_cooldown_seconds: f64,
     pub article_pipeline_concurrency: usize,
@@ -80,6 +81,13 @@ impl Settings {
                 1,
                 1,
                 usize::MAX,
+            )?,
+            comments_fetch_timeout_seconds: float(
+                values,
+                "COMMENTS_FETCH_TIMEOUT_SECONDS",
+                60.0,
+                0.0,
+                false,
             )?,
             comments_fetch_min_interval_seconds: float(
                 values,
@@ -232,6 +240,7 @@ mod tests {
         );
         assert_eq!(settings.feed_points, 200);
         assert_eq!(settings.comments_fetch_concurrency, 1);
+        assert_eq!(settings.comments_fetch_timeout_seconds, 60.0);
         assert_eq!(settings.article_pipeline_concurrency, 3);
         assert_eq!(settings.feed_poll_interval_seconds, 30.0);
         assert_eq!(settings.article_lang, "Traditional Chinese (台灣正體中文)");
@@ -271,6 +280,7 @@ mod tests {
         let mut values = required_values();
         values.insert("OPENAI_MODEL".to_owned(), "custom".to_owned());
         values.insert("OPENAI_TIMEOUT_SECONDS".to_owned(), "45".to_owned());
+        values.insert("COMMENTS_FETCH_TIMEOUT_SECONDS".to_owned(), "90".to_owned());
         values.insert("REDIS_PASSWORD".to_owned(), "redis-secret".to_owned());
         values.insert(
             "HNBOT_COMMENTS_API_BASE_URL".to_owned(),
@@ -282,6 +292,7 @@ mod tests {
         let settings = Settings::from_map(&values).unwrap();
         assert_eq!(settings.openai_model, "custom");
         assert_eq!(settings.openai_timeout_seconds, 45.0);
+        assert_eq!(settings.comments_fetch_timeout_seconds, 90.0);
         assert_eq!(settings.redis_password.as_deref(), Some("redis-secret"));
         assert_eq!(
             settings.comments_api_base_url,

@@ -77,13 +77,13 @@ This schema is unchanged, so existing Compose volumes remain usable without migr
 
 ## External API adapters
 
-All adapters use the configured User-Agent. Non-OpenAI adapters use `HTTP_TIMEOUT_SECONDS`; OpenAI uses its dedicated `OPENAI_TIMEOUT_SECONDS` because generation can legitimately exceed the shorter general I/O timeout.
+All adapters use the configured User-Agent. HNRSS, Telegraph, and Telegram use `HTTP_TIMEOUT_SECONDS`; the HN comment API and OpenAI use dedicated `COMMENTS_FETCH_TIMEOUT_SECONDS` and `OPENAI_TIMEOUT_SECONDS` values because large discussions and generation can legitimately exceed the shorter general I/O timeout.
 
 ### HNRSS and HN comments
 
 HNRSS is fetched from `/newest?points=...`. Each discussion is fetched as one nested item response from `HNBOT_COMMENTS_API_BASE_URL/{entry.id}` and rendered into heading-structured Markdown. This avoids rate-limited `news.ycombinator.com` page scraping and preserves replies beneath deleted comments.
 
-Feed and comment API GETs retry transport failures, HTTP 429, and HTTP 5xx up to three attempts. Numeric and HTTP-date `Retry-After` values are honored. Comment API request starts share a process-wide pacer, and a 429 extends the global cooldown using `Retry-After` or `COMMENTS_FETCH_429_COOLDOWN_SECONDS`.
+Feed and comment API GETs retry transport failures, HTTP 429, and HTTP 5xx up to three attempts. Numeric and HTTP-date `Retry-After` values are honored. Comment API requests use their dedicated timeout, starts share a process-wide pacer, and a 429 extends the global cooldown using `Retry-After` or `COMMENTS_FETCH_429_COOLDOWN_SECONDS`.
 
 ### OpenAI
 

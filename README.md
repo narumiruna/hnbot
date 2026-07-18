@@ -109,9 +109,10 @@ Settings are read from environment variables and an optional `.env` file. Unknow
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database |
 | `REDIS_PASSWORD` | unset | Password for an authenticated external Redis instance; Compose overrides this for its private Redis service |
-| `HTTP_TIMEOUT_SECONDS` | `10.0` | Timeout for non-OpenAI HTTP requests |
+| `HTTP_TIMEOUT_SECONDS` | `10.0` | General timeout for HNRSS, Telegraph, and Telegram requests |
 | `HTTP_USER_AGENT` | `hnbot/0.0.0` | HTTP User-Agent |
 | `COMMENTS_FETCH_CONCURRENCY` | `1` | Maximum concurrent HN comment fetches |
+| `COMMENTS_FETCH_TIMEOUT_SECONDS` | `60.0` | HN comment API request timeout |
 | `COMMENTS_FETCH_MIN_INTERVAL_SECONDS` | `2.0` | Minimum delay between HN request starts |
 | `COMMENTS_FETCH_429_COOLDOWN_SECONDS` | `30.0` | Cooldown after comment API 429 without `Retry-After` |
 | `HNBOT_COMMENTS_API_BASE_URL` | `https://hn.algolia.com/api/v1/items` | HN Algolia item API base URL |
