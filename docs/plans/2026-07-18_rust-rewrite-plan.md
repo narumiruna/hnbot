@@ -73,6 +73,13 @@
 - [ ] 受控切換通過後移除 Python runtime/tooling：刪除 `src/hnbot/`、Python tests/scripts、`pyproject.toml`、`uv.lock` 與 Python CI/publish/bump workflow；將 justfile/pre-commit/Dependabot/README/DESIGN_DOC/AGENTS.md 改成 Cargo + Docker Compose，保留共享 contract fixtures與 RSS sample。驗證 repository 不再引用 Python、uv、PyPI、Logfire 或已刪路徑。
 - [ ] 執行最終 gate：`cargo fmt --check`、strict clippy、所有 Rust tests、Docker build、Compose config、container CLI smoke、secret scan、`git diff --check` 全部成功；完成計畫 checklist 後移至 `docs/plans/archived/`。
 
+## Deployment evidence
+
+- PR #36 已於 2026-07-18 合併至 `main` (`0af11a2`)；latest CI run `29637612813` 的 Python parity、Rust 與 Docker jobs 全部成功，3 個 review findings 均以 regression tests 修正並 resolve。
+- Docker Desktop 本機驗證已成功：Compose config、fresh image build、container `serve --help`、release binary及 non-root `uid=999(app)`。
+- 使用 Compose 建立隔離 Redis volume，複製既有 69 個 dedupe rows 並預載當下 20 個 feed rows後，Rust container 完成恰好 3 個 sequential batches；logs 顯示 60 次 dedupe skip、0 次新處理、0 errors，SIGTERM 後 exit 0。測試後已停止所有 Compose containers，保留 volume，未觸發外部通知。
+- 上述僅是無副作用 deployment dry-run，不是正式 acceptance：本機原狀態不是既有 Docker volume，且沒有新成功通知可驗證 send-once。正式環境以原 volume 完成同樣 3-batch + 新通知驗收前，受控切換、Python 移除與計畫封存維持未完成。
+
 ## Test cases and verification scenarios
 
 - Settings：required/missing secrets、所有 defaults、env override、NaN/inf/negative/boundary values。
@@ -103,7 +110,7 @@
 - [x] Rust `hnbot serve` 在 CLI、設定、資料流、retry/pacing、concurrency、failure boundaries、shutdown 與 Redis contract 上達到已記錄的 Python parity，並由共享 fixtures及 Rust tests 證明。
 - [ ] 正式 Compose 已只執行 Rust image，使用原 Redis volume，且受控 3-batch 驗收全部通過並有 deployment evidence。
 - [ ] Repository 已移除 Python、uv、PyPI、Logfire 與其 workflows/config，驗證方式為 repository search、tracked file review 與 Rust-only CI。
-- [ ] `tracing` stdout 不包含 secrets，且 service/batch/entry/retry/cancellation 事件可由 mock tests與受控部署 logs 驗證。
-- [ ] Docker image 以 non-root user 執行，`hnbot serve --help` smoke、Compose config 與 service startup 均通過。
+- [x] `tracing` stdout 不包含 secrets，且 service/batch/entry/retry/cancellation 事件已由 mock tests與隔離 deployment dry-run logs 驗證。
+- [x] Docker image 以 non-root `uid=999(app)` 執行，`hnbot serve --help` smoke、Compose config 與隔離 service startup 均通過。
 - [x] Cargo format、strict clippy、全部 tests、Docker build、pre-commit 與 GitHub CI 全部通過（pre-removal gate；移除 Python 後須再跑一次 final gate）。
 - [ ] 文件只描述 Rust + Docker Compose 的現行操作，且完成計畫已封存至 `docs/plans/archived/2026-07-18_rust-rewrite-plan.md`。
