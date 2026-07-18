@@ -2,7 +2,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use rand::Rng;
+use rand::RngExt;
 use reqwest::{Response, StatusCode};
 use thiserror::Error;
 use tokio::sync::Mutex;
