@@ -62,6 +62,12 @@ impl Article {
     }
 
     pub fn validate(&self) -> Result<(), ArticleError> {
+        let title_len = self.title.chars().count();
+        if self.title.trim().is_empty() || title_len > 256 {
+            return Err(ArticleError::Constraint(
+                "title must contain text and not exceed 256 characters".to_owned(),
+            ));
+        }
         if self.summary.chars().count() > 500 {
             return Err(ArticleError::Constraint(
                 "summary exceeds 500 characters".to_owned(),
@@ -248,6 +254,22 @@ mod tests {
             .unwrap();
         assert_eq!(article.title, "title");
         assert_eq!(client.prompts.lock().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn validation_rejects_telegraph_invalid_titles() {
+        let article = Article {
+            title: String::new(),
+            summary: String::new(),
+            sections: Vec::new(),
+        };
+        assert!(article.validate().is_err());
+
+        let invalid = Article {
+            title: "x".repeat(257),
+            ..article
+        };
+        assert!(invalid.validate().is_err());
     }
 
     #[test]

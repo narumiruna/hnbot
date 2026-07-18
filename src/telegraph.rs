@@ -9,6 +9,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use thiserror::Error;
+use tokio::sync::OnceCell;
 
 use crate::http::{HttpFailure, response_json};
 
@@ -56,11 +57,36 @@ pub trait PagePublisher: Send + Sync {
 pub struct TelegraphClient {
     client: Client,
     base_url: String,
+    access_token: OnceCell<String>,
 }
 
 impl TelegraphClient {
     pub fn new(client: Client, base_url: String) -> Self {
-        Self { client, base_url }
+        Self {
+            client,
+            base_url,
+            access_token: OnceCell::new(),
+        }
+    }
+
+    async fn access_token(&self) -> Result<&str, TelegraphError> {
+        self.access_token
+            .get_or_try_init(|| async {
+                let response = self
+                    .client
+                    .post(format!(
+                        "{}/createAccount",
+                        self.base_url.trim_end_matches('/')
+                    ))
+                    .form(&[("short_name", "Narumi's Bot")])
+                    .send()
+                    .await
+                    .map_err(|error| HttpFailure::Transport(error.to_string()))?;
+                let account: ApiResponse<AccountResult> = response_json(response).await?;
+                Ok(api_result(account)?.access_token)
+            })
+            .await
+            .map(String::as_str)
     }
 }
 
@@ -84,19 +110,7 @@ struct PageResult {
 #[async_trait]
 impl PagePublisher for TelegraphClient {
     async fn create_page(&self, title: &str, html: &str) -> Result<String, TelegraphError> {
-        let account_response = self
-            .client
-            .post(format!(
-                "{}/createAccount",
-                self.base_url.trim_end_matches('/')
-            ))
-            .form(&[("short_name", "Narumi's Bot")])
-            .send()
-            .await
-            .map_err(|error| HttpFailure::Transport(error.to_string()))?;
-        let account: ApiResponse<AccountResult> = response_json(account_response).await?;
-        let token = api_result(account)?.access_token;
-
+        let token = self.access_token().await?;
         let sanitized = sanitize_telegraph_html(html);
         let content = serde_json::to_string(&html_to_nodes(&sanitized))
             .map_err(|error| TelegraphError::Api(error.to_string()))?;
@@ -107,7 +121,7 @@ impl PagePublisher for TelegraphClient {
                 self.base_url.trim_end_matches('/')
             ))
             .form(&[
-                ("access_token", token.as_str()),
+                ("access_token", token),
                 ("title", title),
                 ("content", content.as_str()),
                 ("return_content", "false"),
@@ -133,9 +147,9 @@ fn api_result<T>(response: ApiResponse<T>) -> Result<T, TelegraphError> {
 }
 
 pub fn sanitize_telegraph_html(input: &str) -> String {
-    let token_re = Regex::new(r"(?s)<[^>]+>|[^<]+").expect("static token regex");
-    let start_re = Regex::new(r"(?is)^<\s*([a-z0-9]+)([^>]*)>$").expect("static start regex");
-    let end_re = Regex::new(r"(?is)^</\s*([a-z0-9]+)\s*>$").expect("static end regex");
+    let token_re = Regex::new(r"(?s)<[^>]+>|[^<]+|<").expect("static token regex");
+    let start_re = Regex::new(r"(?is)^<([a-z0-9]+)([^>]*)>$").expect("static start regex");
+    let end_re = Regex::new(r"(?is)^</([a-z0-9]+)\s*>$").expect("static end regex");
     let attr_re = Regex::new(r#"(?is)([a-z0-9_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#)
         .expect("static attribute regex");
     let mut output = String::new();
@@ -221,7 +235,7 @@ fn allowed_attrs(tag: &str) -> &'static [&'static str] {
     match tag {
         "a" => &["href"],
         "iframe" | "video" => &["src"],
-        "img" => &["src", "alt"],
+        "img" => &["src"],
         _ => &[],
     }
 }
@@ -314,6 +328,10 @@ mod tests {
             sanitize_telegraph_html(input),
             "<h3>Title</h3><a href=\"https://example.com\">link</a>&lt;script&gt;x&lt;/script&gt;<b>open</b>"
         );
+        assert_eq!(
+            sanitize_telegraph_html(r#"<img src="image.png" alt="description">"#),
+            r#"<img src="image.png">"#
+        );
     }
 
     #[test]
@@ -324,10 +342,15 @@ mod tests {
     }
 
     #[test]
-    fn sanitizer_escapes_mismatched_closing_tags() {
+    fn sanitizer_escapes_mismatched_closing_tags_and_lone_less_than() {
         assert_eq!(
             sanitize_telegraph_html("<b>bold</i>"),
             "<b>bold&lt;/i&gt;</b>"
+        );
+        assert_eq!(sanitize_telegraph_html("one < two"), "one &lt; two");
+        assert_eq!(
+            sanitize_telegraph_html("one < b > two"),
+            "one &lt; b &gt; two"
         );
     }
 
@@ -358,6 +381,34 @@ mod tests {
             client.create_page("Title", "<p>Body</p>").await.unwrap(),
             "https://telegra.ph/page"
         );
+    }
+
+    #[tokio::test]
+    async fn reuses_one_account_for_multiple_pages() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/createAccount"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "ok": true,
+                "result": {"access_token": "token"}
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/createPage"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "ok": true,
+                "result": {"url": "https://telegra.ph/page"}
+            })))
+            .expect(2)
+            .mount(&server)
+            .await;
+
+        let client = TelegraphClient::new(Client::new(), server.uri());
+        client.create_page("First", "Body").await.unwrap();
+        client.create_page("Second", "Body").await.unwrap();
+        server.verify().await;
     }
 
     #[tokio::test]

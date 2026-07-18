@@ -129,10 +129,10 @@ where
 
 pub fn retry_after_duration(value: &str, now: SystemTime) -> Option<Duration> {
     if let Ok(seconds) = value.parse::<f64>() {
-        if seconds.is_finite() {
-            return Some(Duration::from_secs_f64(seconds.max(0.0)));
+        if !seconds.is_finite() {
+            return None;
         }
-        return None;
+        return Duration::try_from_secs_f64(seconds.max(0.0)).ok();
     }
     let date = httpdate::parse_http_date(value).ok()?;
     Some(date.duration_since(now).unwrap_or(Duration::ZERO))
@@ -196,6 +196,7 @@ mod tests {
             Some(Duration::from_secs(10))
         );
         assert_eq!(retry_after_duration("NaN", now), None);
+        assert_eq!(retry_after_duration("2e19", now), None);
         assert_eq!(retry_after_duration("invalid", now), None);
     }
 
