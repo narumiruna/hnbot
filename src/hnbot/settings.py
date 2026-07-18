@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     feed_points: int = Field(default=200, ge=1)
     batch_sleep_seconds: float = Field(default=0.5, ge=0.0)
+    feed_poll_interval_seconds: float = Field(default=30.0, ge=1.0)
 
 
 @lru_cache(maxsize=1)

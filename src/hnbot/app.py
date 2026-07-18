@@ -1,5 +1,6 @@
 import asyncio
 import html
+import signal
 from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import Protocol
@@ -152,12 +153,58 @@ class App:
     def run(self) -> None:
         asyncio.run(self._run_async())
 
+    def serve(self, poll_interval_seconds: float) -> None:
+        try:
+            asyncio.run(self._serve_async(poll_interval_seconds))
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            logger.info("Service stopped")
+
     async def _run_async(self) -> None:
         try:
             await self._run_feed_batch()
         finally:
-            await self.http_client.aclose()
-            await self.redis_client.aclose()
+            await self._close_clients()
+
+    async def _serve_async(self, poll_interval_seconds: float) -> None:
+        loop = asyncio.get_running_loop()
+        current_task = asyncio.current_task()
+        sigterm_handler_installed = False
+
+        if current_task is not None:
+            try:
+                loop.add_signal_handler(signal.SIGTERM, current_task.cancel)
+                sigterm_handler_installed = True
+            except (NotImplementedError, RuntimeError):
+                pass
+
+        try:
+            await self._serve_loop(poll_interval_seconds)
+        finally:
+            if sigterm_handler_installed:
+                loop.remove_signal_handler(signal.SIGTERM)
+            await self._close_clients()
+
+    async def _serve_loop(
+        self,
+        poll_interval_seconds: float,
+        *,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ) -> None:
+        while True:
+            try:
+                await self._run_feed_batch()
+            # A service batch is an isolation boundary; cancellation still propagates as BaseException.
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "Feed batch failed; retrying in {} seconds",
+                    poll_interval_seconds,
+                )
+
+            await sleep(poll_interval_seconds)
+
+    async def _close_clients(self) -> None:
+        await self.http_client.aclose()
+        await self.redis_client.aclose()
 
     async def _run_feed_batch(self) -> None:
         feed = await get_hn_feed(self.http_client, points=self.settings.feed_points)
@@ -180,8 +227,21 @@ class App:
             )
             for entry in entries
         ]
-        if tasks:
-            await asyncio.gather(*tasks)
+        if not tasks:
+            return
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        exceptions: list[Exception] = []
+
+        for entry, result in zip(entries, results, strict=True):
+            if isinstance(result, asyncio.CancelledError):
+                raise result
+            if isinstance(result, Exception):
+                logger.opt(exception=result).error("Unhandled error processing entry {}", entry.id)
+                exceptions.append(result)
+
+        if exceptions:
+            raise ExceptionGroup("One or more feed entries failed", exceptions)
 
     @retry(
         stop=stop_after_attempt(3),

@@ -16,7 +16,7 @@ Non-goals:
 
 ## System Context
 
-`hnbot` is a batch-style Telegram bot pipeline that:
+`hnbot` is a batch or long-running Telegram bot pipeline that:
 - Reads Hacker News entries from `hnrss.org`.
 - Fetches the linked HN discussion page HTML.
 - Converts HTML to Markdown and summarizes it via OpenAI.
@@ -35,7 +35,8 @@ External dependencies:
 
 Local runtime:
 - Entrypoint: `hnbot` console script -> `hnbot.cli:app`.
-- Main command: `uv run hnbot` (or `uv run hnbot main`).
+- Batch commands: `uv run hnbot` or `uv run hnbot main`.
+- Service command: `uv run hnbot serve`.
 - `.env` is loaded by CLI via `python-dotenv`.
 
 Scheduled runtime:
@@ -44,7 +45,8 @@ Scheduled runtime:
 
 Execution model:
 - A single invocation processes one feed batch and exits.
-- There is no built-in infinite polling loop in `App.run()`.
+- Service mode immediately processes one feed batch, waits `feed_poll_interval_seconds`, and repeats.
+- Batches never overlap; the polling delay starts only after every entry task from the current batch has finished.
 
 ## End-to-End Flow
 
@@ -151,13 +153,14 @@ Shared transient HTTP retry policy (`hnbot.http_retry`):
 
 Batch/feed failure boundary:
 - If HNRSS feed fetch fails after retries, the batch raises the final HTTP error and the cron job fails after retry evidence is logged.
+- In service mode, a batch exception is logged and the next poll starts after the configured interval.
 
 Per-entry failure boundaries:
 - If comment fetch fails after retries: entry is skipped (returns `False`).
 - If OpenAI rejects input with `BadRequestError` (for example `invalid_prompt`): entry is skipped.
 - If article generation/page creation fails with `RuntimeError` or `ValueError`: entry is skipped.
 - Failed entries are not marked in Redis.
-- Processing of other entries continues (`asyncio.gather` over tasks).
+- Processing of other entries continues. All entry tasks are awaited before unexpected entry exceptions are propagated.
 
 ## Concurrency and Throughput
 
@@ -172,6 +175,11 @@ Behavioral implications:
 Batch pacing:
 - `batch_sleep_seconds` delay is applied before processing feed entries.
 - Default is `0.5` seconds.
+
+Service polling:
+- `feed_poll_interval_seconds` controls the delay after a completed or failed batch.
+- Default is `30.0` seconds and the minimum is `1.0` second.
+- `hnbot serve --poll-interval` overrides the configured value for one process.
 
 ## Configuration Reference
 
@@ -194,6 +202,7 @@ Common optional settings and defaults:
 - `CHUNK_SIZE = 200000` (must be >= 1)
 - `FEED_POINTS = 100` (must be >= 1)
 - `BATCH_SLEEP_SECONDS = 0.5` (must be >= 0.0)
+- `FEED_POLL_INTERVAL_SECONDS = 30.0` (must be >= 1.0)
 
 ## Observability
 
@@ -226,6 +235,7 @@ Current tests validate:
 - Parallel pipeline behavior (including non-deterministic send order).
 - Message HTML escaping for title/summary/links.
 - OpenAI model propagation from settings in the LLM wrapper.
+- Batch and service CLI dispatch, polling interval precedence, sequential polling, failure recovery, and cancellation cleanup.
 
 Known test gaps:
 - No full integration test against real external services.
@@ -233,7 +243,7 @@ Known test gaps:
 
 ## Known Limitations
 
-- Single-run batch execution; no continuous daemon loop.
+- Service mode does not fetch another feed while the current batch is still processing.
 - Dedupe key has no TTL and can grow without a retention policy.
 - Heavy dependence on external service availability and latency after bounded HTTP retries are exhausted.
 - OpenAI generation, Telegraph page creation, and Telegram sending are not retried because they can have non-idempotent side effects or extra cost.

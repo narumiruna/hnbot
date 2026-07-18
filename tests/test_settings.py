@@ -85,3 +85,32 @@ def test_settings_batch_sleep_seconds_override() -> None:
 def test_settings_batch_sleep_seconds_zero_is_valid() -> None:
     settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id", "batch_sleep_seconds": 0.0})
     assert settings.batch_sleep_seconds == 0.0
+
+
+def test_settings_feed_poll_interval_seconds_default() -> None:
+    settings = Settings.model_validate({"bot_token": "bot-token", "chat_id": "chat-id"})
+
+    assert settings.feed_poll_interval_seconds == 30.0
+
+
+def test_settings_feed_poll_interval_seconds_override() -> None:
+    settings = Settings.model_validate(
+        {
+            "bot_token": "bot-token",
+            "chat_id": "chat-id",
+            "feed_poll_interval_seconds": 5.0,
+        }
+    )
+
+    assert settings.feed_poll_interval_seconds == 5.0
+
+
+def test_settings_feed_poll_interval_seconds_must_be_at_least_one() -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate(
+            {
+                "bot_token": "bot-token",
+                "chat_id": "chat-id",
+                "feed_poll_interval_seconds": 0.5,
+            }
+        )
