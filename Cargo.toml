@@ -10,7 +10,7 @@ async-trait        = "0.1"
 chrono             = { version = "0.4", features = ["serde"] }
 clap               = { version = "4.5", features = ["derive"] }
 dotenvy            = "0.15"
-feed-rs            = "2.3"
+feed-rs            = "3.0"
 futures            = "0.3"
 html-escape        = "0.2"
 html2md            = "0.2"
